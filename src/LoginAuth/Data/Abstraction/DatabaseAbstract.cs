@@ -14,6 +14,6 @@ public abstract class DatabaseAbstract<T>
     public abstract void Add(T item);
     public abstract void Remove(int id);
     public abstract void Update(T item);
-    public abstract T FindByID(int id);
+    public abstract T? FindByID(int id);
     public abstract IEnumerable<T> FindAll();
 }

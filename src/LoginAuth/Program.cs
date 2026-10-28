@@ -47,11 +47,9 @@ app.MapPost("/register", (RegisterRequest request, DatabaseAbstract<Account> dat
 
 app.MapPost("/login", (LoginRequest request, DatabaseAbstract<Account> database) =>
 {
-    var account = Account.Restore(database, request.Email, request.Password);
-    if (account is null)
-        return Results.BadRequest(AccountErrorMessage.EmailOrPasswordInvalid);
-
-    return Results.Ok(account);
+    return Account.Restore(database, request.Email, request.Password) is null
+        ? Results.BadRequest(AccountErrorMessage.EmailOrPasswordInvalid)
+        : Results.Ok();
 }).AllowAnonymous();
 
 app.Run();

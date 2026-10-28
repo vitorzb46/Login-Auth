@@ -1,6 +1,5 @@
 using Dapper;
 using LoginAuth.Data.Abstraction;
-using LoginAuth.ErrorMessages;
 using LoginAuth.Model;
 using Microsoft.Data.Sqlite;
 
@@ -17,9 +16,9 @@ public class Database(IConfiguration configuration) : DatabaseAbstract<Account>(
     public override void Update(Account item) =>
         SqlConnected(conn => conn.Execute("UPDATE Account SET Email = @Email, Password = @Password WHERE Id = @Id", item));
 
-    public override Account FindByID(int id) =>
+    public override Account? FindByID(int id) =>
         SqlConnected(conn => conn.QueryFirstOrDefault<Account>("SELECT * FROM Account WHERE Id = @Id", new { Id = id })
-                ?? throw new ArgumentException(AccountErrorMessage.AccountNotFound));
+                ?? null);
 
     public override IEnumerable<Account> FindAll() =>
         SqlConnected(conn => conn.Query<Account>("SELECT * FROM Account"));
