@@ -1,0 +1,8 @@
+@Test_HostAddress = https://localhost:7191
+
+POST {{Test_HostAddress}}/register
+Accept: application/json
+{
+  "Email": "vitor@gmail.com",
+  "Password": "123456"
+}
