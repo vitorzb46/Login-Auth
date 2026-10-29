@@ -38,9 +38,8 @@ app.MapPost("/register", (RegisterRequest request, DatabaseAbstract<Account> dat
     if (newAccount is null)
         return Results.BadRequest(AccountErrorMessage.EmailOrPasswordInvalid);
 
-    database.Add(newAccount);
-
-    // TODO: Validate if account was created on database
+    if (!database.Add(newAccount))
+        return Results.BadRequest(AccountErrorMessage.EmailOrPasswordInvalid);
 
     return Results.Ok();
 }).AllowAnonymous();

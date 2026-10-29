@@ -7,8 +7,15 @@ namespace LoginAuth.Data;
 
 public class Database(IConfiguration configuration) : DatabaseAbstract<Account>(configuration)
 {
-    public override void Add(Account item) =>
-        SqlConnected(conn => conn.Execute("INSERT INTO Account (Email, Password) VALUES (@Email, @Password)", item));
+    public override bool Add(Account item)
+    {
+        try
+        {
+            SqlConnected(conn => conn.Execute("INSERT INTO Account (Email, Password) VALUES (@Email, @Password)", item));
+            return true;
+        }
+        catch (SqliteException) { return false; }
+    }
 
     public override void Remove(int id) =>
         SqlConnected(conn => conn.Execute("DELETE FROM Account WHERE Id = @Id", new { Id = id }));
@@ -30,7 +37,7 @@ public class Database(IConfiguration configuration) : DatabaseAbstract<Account>(
         catch (SqliteException ex)
         {
             Console.WriteLine(ex.Message);
-            throw;
+            //throw;
         }
         return func(connection);
     }

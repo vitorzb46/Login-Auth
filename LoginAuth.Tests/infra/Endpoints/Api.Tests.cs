@@ -1,10 +1,10 @@
-using System.Net;
-using System.Net.Http.Json;
 using LoginAuth.Data.Abstraction;
 using LoginAuth.Model;
 using Microsoft.Extensions.DependencyInjection;
+using System.Net;
+using System.Net.Http.Json;
 
-namespace LoginAuth.Tests.Endpoints;
+namespace LoginAuth.Tests.infra.Endpoints;
 
 public class Api
 {
@@ -36,6 +36,21 @@ public class Api
     }
 
     [Test]
+    public async Task RegisterEmailAlreadyExists_ShouldReturnBadRequest()
+    {
+        var input1 = AccountData("example1@ex.com");
+        var input2 = AccountData("example1@ex.com");
+        var response = await _client.PostAsJsonAsync("/register", input1);
+        var response2 = await _client.PostAsJsonAsync("/register", input2);
+        _db.Remove(input1.Id);
+        Assert.Multiple(() =>
+        {
+            Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+            Assert.That(response2.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
+        });
+    }
+
+    [Test]
     public async Task SignIn_WithExistingAccount_ShouldReturnOk()
     {
         var input = AccountData();
@@ -45,8 +60,8 @@ public class Api
     }
 
     private static Account AccountData(string? email = null, string pwd = "123456789") =>
-        new(){ Email = email ?? $"test_{Guid.NewGuid()}@example.com", Password = pwd };
-    
+        new() { Email = email ?? $"test_{Guid.NewGuid()}@example.com", Password = pwd };
+
     private void AssertInputAndResponse_ThenCleanDB(Account input, HttpResponseMessage response)
     {
         var bancoAcc = _db.FindAll().FirstOrDefault(s => s.Email == input.Email && s.Password == input.Password);
@@ -61,7 +76,7 @@ public class Api
             Assert.That(accRemoved, Is.Null);
         });
     }
-    
+
     [TearDown]
     public void TearDown()
     {
