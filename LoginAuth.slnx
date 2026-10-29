@@ -2,4 +2,5 @@
   <Folder Name="/src/">
     <Project Path="src/LoginAuth/LoginAuth.csproj" />
   </Folder>
+  <Project Path="LoginAuth.Tests/LoginAuth.Tests.csproj" />
 </Solution>
