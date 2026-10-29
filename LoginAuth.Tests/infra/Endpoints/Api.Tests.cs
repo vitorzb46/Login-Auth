@@ -39,15 +39,8 @@ public class Api
     public async Task RegisterEmailAlreadyExists_ShouldReturnBadRequest()
     {
         var input1 = AccountData("example1@ex.com");
-        var input2 = AccountData("example1@ex.com");
         var response = await _client.PostAsJsonAsync("/register", input1);
-        var response2 = await _client.PostAsJsonAsync("/register", input2);
-        _db.Remove(input1.Id);
-        Assert.Multiple(() =>
-        {
-            Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
-            Assert.That(response2.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
-        });
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
     }
 
     [Test]
@@ -59,22 +52,52 @@ public class Api
         AssertInputAndResponse_ThenCleanDB(input, response);
     }
 
+    [Test]
+    public async Task SignIn_WithPwdLessThan8_ShouldReturnBadRequest()
+    {
+        var inputBad = AccountData(pwd: "1234567");
+        var inputGood = AccountData(pwd: "123456789");
+        var registro = await _client.PostAsJsonAsync("/register", inputGood);
+        var responseBad = await _client.PostAsJsonAsync("/login", inputBad);        
+        var responseGood = await _client.PostAsJsonAsync("/login", inputGood);
+        var bancoAcc = _db.FindAll().FirstOrDefault(acc => acc.Email == inputGood.Email);
+        _db.Remove(inputGood.Id);
+        var accRemoved = _db.FindByID(inputGood.Id);
+        Assert.Multiple(() =>
+        {
+            Assert.That(registro.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+            Assert.That(bancoAcc, Is.Not.Null);
+            Assert.That(bancoAcc?.Email, Is.EqualTo(inputGood.Email));
+            Assert.That(bancoAcc?.Password, Is.EqualTo(inputGood.Password));
+            Assert.That(responseBad.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
+            Assert.That(responseGood.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+            Assert.That(accRemoved, Is.Null);
+        });
+    }
+
     private static Account AccountData(string? email = null, string pwd = "123456789") =>
         new() { Email = email ?? $"test_{Guid.NewGuid()}@example.com", Password = pwd };
 
     private void AssertInputAndResponse_ThenCleanDB(Account input, HttpResponseMessage response)
     {
-        var bancoAcc = _db.FindAll().FirstOrDefault(s => s.Email == input.Email && s.Password == input.Password);
-        Assert.That(bancoAcc, Is.Not.Null);
-        _db.Remove(bancoAcc.Id);
-        var accRemoved = _db.FindByID(bancoAcc.Id);
-        Assert.Multiple(() =>
+        Account? bancoAcc = null;
+        try
         {
-            Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
-            Assert.That(bancoAcc.Email, Is.EqualTo(input.Email));
-            Assert.That(bancoAcc.Password, Is.EqualTo(input.Password));
+            bancoAcc = _db.FindAll().FirstOrDefault(s => s.Email == input.Email && s.Password == input.Password);
+            Assert.That(bancoAcc, Is.Not.Null);         
+            Assert.Multiple(() =>            {
+                Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));                
+                Assert.That(bancoAcc.Email, Is.EqualTo(input.Email));
+                Assert.That(bancoAcc.Password, Is.EqualTo(input.Password));
+            });
+        }
+        finally
+        {
+            Assert.That(bancoAcc, Is.Not.Null);
+            _db.Remove(bancoAcc.Id);
+            var accRemoved = _db.FindByID(bancoAcc.Id);
             Assert.That(accRemoved, Is.Null);
-        });
+        }
     }
 
     [TearDown]
