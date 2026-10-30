@@ -11,19 +11,33 @@ public class Database(IConfiguration configuration) : DatabaseAbstract<Account>(
     {
         try
         {
-            SqlConnected(conn => conn.Execute("INSERT INTO Account (Email, Password) VALUES (@Email, @Password)", item));
-            return true;
+            var changedRows = SqlConnected(conn => conn.Execute("INSERT INTO Account (Email, Password) VALUES (@Email, @Password)", item));
+            return changedRows > 0;
         }
         catch (SqliteException) { return false; }
     }
 
-    public override void Remove(int id) =>
-        SqlConnected(conn => conn.Execute("DELETE FROM Account WHERE Id = @Id", new { Id = id }));
+    public override bool Remove(int? id)
+    {
+        try
+        {
+            var changedRows = SqlConnected(conn => conn.Execute("DELETE FROM Account WHERE Id = @Id", new { Id = id }));
+            return changedRows > 0;
+        }
+        catch (SqliteException) { return false; }
+    }
 
-    public override void Update(Account item) =>
-        SqlConnected(conn => conn.Execute("UPDATE Account SET Email = @Email, Password = @Password WHERE Id = @Id", item));
+    public override bool Update(Account item)
+    {
+        try
+        {
+            var changedRows = SqlConnected(conn => conn.Execute("UPDATE Account SET Email = @Email, Password = @Password WHERE Id = @Id", item));
+            return changedRows > 0;
+        }
+        catch (SqliteException) { return false; }        
+    }
 
-    public override Account? FindByID(int id) =>
+    public override Account? FindByID(int? id) =>
         SqlConnected(conn => conn.QueryFirstOrDefault<Account>("SELECT * FROM Account WHERE Id = @Id", new { Id = id })
                 ?? null);
 
@@ -37,7 +51,6 @@ public class Database(IConfiguration configuration) : DatabaseAbstract<Account>(
         catch (SqliteException ex)
         {
             Console.WriteLine(ex.Message);
-            //throw;
         }
         return func(connection);
     }

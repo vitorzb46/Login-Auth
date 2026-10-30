@@ -36,11 +36,14 @@ public class Api
     }
 
     [Test]
-    public async Task RegisterEmailAlreadyExists_ShouldReturnBadRequest()
+    public async Task RegisterEmailThatAlreadyExists_ShouldReturnBadRequest()
     {
-        var input1 = AccountData("example1@ex.com");
-        var response = await _client.PostAsJsonAsync("/register", input1);
-        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
+        var acc = AccountData("example1@ex.com");
+        _db.Add(acc);
+        var input = await _client.PostAsJsonAsync("/register", acc);
+        Assert.That(input.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
+        var r = _db.FindAll().FirstOrDefault(a => a.Email == acc.Email);
+        _db.Remove(r?.Id);
     }
 
     [Test]

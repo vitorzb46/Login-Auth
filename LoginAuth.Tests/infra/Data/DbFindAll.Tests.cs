@@ -1,0 +1,60 @@
+using LoginAuth.Data.Abstraction;
+using LoginAuth.Model;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace LoginAuth.Tests.infra.Data;
+
+public class DBFindAll
+{
+    private ApiWebApplicationFactory _factory;
+    private IServiceScope _scope;
+    private DatabaseAbstract<Account> _db;
+
+
+    [OneTimeSetUp]
+    public void OneTimeSetUp() => _factory = new ApiWebApplicationFactory();
+
+    [SetUp]
+    public void SetUp()
+    {
+        _scope = _factory.Services.CreateScope();
+        _db = _scope.ServiceProvider.GetRequiredService<DatabaseAbstract<Account>>();
+    }
+
+    [Test]
+    public void FindAll_WhenAccountsExist_ReturnsAllAccountsFromDatabase()
+    {
+        var account1 = new Account { Email = "user1@gg.com", Password = "password123" };
+        var account2 = new Account { Email = "user2@gg.com", Password = "password456" };
+        
+        _db.Add(account1);
+        _db.Add(account2);
+        var result = _db.FindAll().ToList();
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.Not.Null);
+            Assert.That(result, Has.Count.GreaterThanOrEqualTo(2));
+            
+            var testAccount1 = result?.FirstOrDefault(a => a.Email == account1.Email);
+            var testAccount2 = result?.FirstOrDefault(a => a.Email == account2.Email);
+
+            Assert.That(testAccount1, Is.Not.Null, "Account 1 has not been found in FindAll");
+            Assert.That(testAccount1?.Password, Is.EqualTo(account1.Password));
+
+            Assert.That(testAccount2, Is.Not.Null, "Account 2 has not been found in FindAll");
+            Assert.That(testAccount2?.Password, Is.EqualTo(account2.Password));
+        });
+        
+        var dbAccount1 = _db.FindAll().FirstOrDefault(a => a.Email == account1.Email);
+        var dbAccount2 = _db.FindAll().FirstOrDefault(a => a.Email == account2.Email);
+        
+        _db.Remove(dbAccount1?.Id); 
+        _db.Remove(dbAccount2?.Id); 
+    }
+    
+    [TearDown]
+    public void TearDown() => _scope.Dispose();
+
+    [OneTimeTearDown]
+    public void OneTimeTearDown() => _factory.Dispose();
+}

@@ -12,8 +12,8 @@ public abstract class DatabaseAbstract<T>
         Seed.CreateDb(configuration);
     }
     public abstract bool Add(T item);
-    public abstract void Remove(int id);
-    public abstract void Update(T item);
-    public abstract T? FindByID(int id);
+    public abstract bool Remove(int? id);
+    public abstract bool Update(T item);
+    public abstract T? FindByID(int? id);
     public abstract IEnumerable<T> FindAll();
 }
