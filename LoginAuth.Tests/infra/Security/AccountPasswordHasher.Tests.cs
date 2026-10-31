@@ -30,7 +30,7 @@ public class UserPasswordHasher
     }
 
     [Test]
-    public void NewMethod()
+    public void ValidPassword_HashedAndVerified_ShouldReturnTrue()
     {
         Account hashedAccount = _hasher.HashPassword(_register);
         bool isValid = _hasher.VerifyPassword(_login, hashedAccount.PasswordHash);
