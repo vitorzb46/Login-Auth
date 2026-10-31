@@ -24,7 +24,7 @@ public class DBRemove
     [Test]
     public void PersistDataThenRemoveFromDatabase()
     {
-        var acc = new Account { Email = $"{Guid.NewGuid()}@gg.com", Password = "123456789" };
+        var acc = new Account { Email = $"{Guid.NewGuid()}@gg.com", PasswordHash = "123456789" };
         bool result = _db.Add(acc);
         var saved = FindAccount(acc);
         _db.Remove(saved?.Id);

@@ -3,6 +3,7 @@ using LoginAuth.DependencyInjection;
 using LoginAuth.DTO;
 using LoginAuth.ErrorMessages;
 using LoginAuth.Model;
+using LoginAuth.Security;
 using LoginAuth.Validation;
 using Microsoft.AspNetCore.Authentication.Negotiate;
 
@@ -32,23 +33,27 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-app.MapPost("/register", (RegisterRequest request, DatabaseAbstract<Account> database) =>
+app.MapPost("/register", (RegisterRequest request, DatabaseAbstract<Account> database, AccountPasswordHasher hasher) =>
 {
-    var newAccount = Account.Create(request.Email, request.Password);
-    if (newAccount is null)
+    if (!request.Validate())
         return Results.BadRequest(AccountErrorMessage.EmailOrPasswordInvalid);
-
-    if (!database.Add(newAccount))
+        
+    if (!database.Add(hasher.HashPassword(request)))
         return Results.BadRequest(AccountErrorMessage.EmailOrPasswordInvalid);
 
     return Results.Ok();
 }).AllowAnonymous();
 
-app.MapPost("/login", (LoginRequest request, DatabaseAbstract<Account> database) =>
+app.MapPost("/login", (LoginRequest request, DatabaseAbstract<Account> database, AccountPasswordHasher hasher) =>
 {
-    return Account.Restore(database, request.Email, request.Password) is null
-        ? Results.BadRequest(AccountErrorMessage.EmailOrPasswordInvalid)
-        : Results.Ok();
+    var getAccount = Account.Restore(database, request.Email);
+    if (getAccount is null)
+        return Results.BadRequest(AccountErrorMessage.EmailOrPasswordInvalid);
+        
+    if (!hasher.VerifyPassword(request, getAccount.PasswordHash))
+        return Results.Unauthorized();
+
+    return Results.Ok();
 }).AllowAnonymous();
 
 app.Run();

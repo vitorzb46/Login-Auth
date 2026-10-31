@@ -19,7 +19,7 @@ public class Seed
                     CREATE TABLE IF NOT EXISTS [Account] (
                         [Id] INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
                         [Email] VARCHAR(254) NOT NULL UNIQUE,
-                        [Password] VARCHAR(255) NOT NULL
+                        [PasswordHash] VARCHAR(255) NOT NULL
                     )");
         }
     }

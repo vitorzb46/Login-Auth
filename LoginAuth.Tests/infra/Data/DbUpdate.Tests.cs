@@ -24,7 +24,7 @@ public class DBUpdate
     [Test]
     public void UpdateAccountAtDatabaseThenRemoveFromDB()
     {
-        var input = new Account { Email = "teste@zz.com", Password = "123456789" };  
+        var input = new Account { Email = "teste@zz.com", PasswordHash = "123456789" };  
         Account? inputUpdate = null;      
         try
         {
@@ -32,7 +32,7 @@ public class DBUpdate
             var dbOutput = FindAccount(input);
             Assert.That(dbOutput, Is.Not.Null);
     
-            inputUpdate = new Account { Id = dbOutput.Id, Email = "testeUpdated@zz.com", Password = "123456789" };
+            inputUpdate = new Account { Id = dbOutput.Id, Email = "testeUpdated@zz.com", PasswordHash = "123456789" };
             bool isUpdated = _db.Update(inputUpdate);
             var updateOutput = FindAccount(inputUpdate);        
             Assert.Multiple(() =>
@@ -41,7 +41,7 @@ public class DBUpdate
                 Assert.That(isUpdated, Is.True);            
                 Assert.That(updateOutput, Is.Not.Null);
                 Assert.That(updateOutput?.Email, Is.EqualTo(inputUpdate.Email));
-                Assert.That(updateOutput?.Password, Is.EqualTo(inputUpdate.Password));
+                Assert.That(updateOutput?.PasswordHash, Is.EqualTo(inputUpdate.PasswordHash));
             });
         }
         finally

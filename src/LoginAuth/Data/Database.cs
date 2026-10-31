@@ -11,7 +11,7 @@ public class Database(IConfiguration configuration) : DatabaseAbstract<Account>(
     {
         try
         {
-            var changedRows = SqlConnected(conn => conn.Execute("INSERT INTO Account (Email, Password) VALUES (@Email, @Password)", item));
+            var changedRows = SqlConnected(conn => conn.Execute("INSERT INTO Account (Email, PasswordHash) VALUES (@Email, @PasswordHash)", item));
             return changedRows > 0;
         }
         catch (SqliteException) { return false; }
@@ -31,7 +31,7 @@ public class Database(IConfiguration configuration) : DatabaseAbstract<Account>(
     {
         try
         {
-            var changedRows = SqlConnected(conn => conn.Execute("UPDATE Account SET Email = @Email, Password = @Password WHERE Id = @Id", item));
+            var changedRows = SqlConnected(conn => conn.Execute("UPDATE Account SET Email = @Email, PasswordHash = @PasswordHash WHERE Id = @Id", item));
             return changedRows > 0;
         }
         catch (SqliteException) { return false; }        

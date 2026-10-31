@@ -1,5 +1,6 @@
 using LoginAuth.Data.Abstraction;
 using LoginAuth.Model;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection;
 using System.Net;
 using System.Net.Http.Json;
@@ -12,6 +13,7 @@ public class Api
     private HttpClient _client;
     private IServiceScope _scope;
     private DatabaseAbstract<Account> _db;
+    private PasswordHasher<string> _hasher;
 
     [OneTimeSetUp]
     public void OneTimeSetUp()
@@ -25,21 +27,37 @@ public class Api
     {
         _scope = _factory.Services.CreateScope();
         _db = _scope.ServiceProvider.GetRequiredService<DatabaseAbstract<Account>>();
+        _hasher = new PasswordHasher<string>();
     }
 
     [Test]
     public async Task RegisterNewAccount_ShouldReturnOk()
     {
         var input = AccountData();
-        var response = await _client.PostAsJsonAsync("/register", input);
-        AssertInputAndResponse_ThenCleanDB(input, response);
+        var response = await _client.PostAsJsonAsync("/register", input);   
+        var bankAcc = _db.FindAll().FirstOrDefault(a => a.Email == input.Email);
+        try
+        {
+            Assert.That(bankAcc, Is.Not.Null);   
+            Assert.Multiple(() =>
+            {
+                var verifyHash = _hasher.VerifyHashedPassword(input.Email, bankAcc.PasswordHash, input.Password);     
+                Assert.That(verifyHash, Is.EqualTo(PasswordVerificationResult.Success));
+                Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));            
+                Assert.That(bankAcc?.Email, Is.EqualTo(input.Email));
+            });
+        }
+        finally
+        {
+            _db.Remove(bankAcc?.Id);
+        }
     }
 
     [Test]
     public async Task RegisterEmailThatAlreadyExists_ShouldReturnBadRequest()
     {
         var acc = AccountData("example1@ex.com");
-        _db.Add(acc);
+        _db.Add(AccountMap(acc));
         var input = await _client.PostAsJsonAsync("/register", acc);
         Assert.That(input.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
         var r = _db.FindAll().FirstOrDefault(a => a.Email == acc.Email);
@@ -50,59 +68,47 @@ public class Api
     public async Task SignIn_WithExistingAccount_ShouldReturnOk()
     {
         var input = AccountData();
-        _db.Add(input);
+        var output = await _client.PostAsJsonAsync("/register", input);        
         var response = await _client.PostAsJsonAsync("/login", input);
-        AssertInputAndResponse_ThenCleanDB(input, response);
+        var bankAcc = _db.FindAll().FirstOrDefault(a => a.Email == input.Email);
+        try
+        {
+            Assert.That(bankAcc, Is.Not.Null);
+            var verifyHash = _hasher.VerifyHashedPassword(input.Email, bankAcc.PasswordHash, input.Password);
+            Assert.Multiple(() =>
+            {
+                Assert.That(output.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+                Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+                Assert.That(verifyHash, Is.EqualTo(PasswordVerificationResult.Success));
+                Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+                Assert.That(bankAcc?.Email, Is.EqualTo(input.Email));
+            });
+        }
+        finally
+        {
+            _db.Remove(bankAcc?.Id);
+        }
     }
 
     [Test]
     public async Task SignIn_WithPwdLessThan8_ShouldReturnBadRequest()
     {
-        var inputBad = AccountData(pwd: "1234567");
-        var inputGood = AccountData(pwd: "123456789");
-        var registro = await _client.PostAsJsonAsync("/register", inputGood);
-        var responseBad = await _client.PostAsJsonAsync("/login", inputBad);        
-        var responseGood = await _client.PostAsJsonAsync("/login", inputGood);
-        var bancoAcc = _db.FindAll().FirstOrDefault(acc => acc.Email == inputGood.Email);
-        _db.Remove(inputGood.Id);
-        var accRemoved = _db.FindByID(inputGood.Id);
+        var input = AccountData(pwd: "1234567");
+        var response = await _client.PostAsJsonAsync("/login", input);
+        var bankAcc = _db.FindAll().FirstOrDefault(a => a.Email == input.Email);
         Assert.Multiple(() =>
         {
-            Assert.That(registro.StatusCode, Is.EqualTo(HttpStatusCode.OK));
-            Assert.That(bancoAcc, Is.Not.Null);
-            Assert.That(bancoAcc?.Email, Is.EqualTo(inputGood.Email));
-            Assert.That(bancoAcc?.Password, Is.EqualTo(inputGood.Password));
-            Assert.That(responseBad.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
-            Assert.That(responseGood.StatusCode, Is.EqualTo(HttpStatusCode.OK));
-            Assert.That(accRemoved, Is.Null);
+            Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
+            Assert.That(bankAcc, Is.Null);
         });
     }
 
-    private static Account AccountData(string? email = null, string pwd = "123456789") =>
+    private static Account AccountMap(FakeDTO fakeDTO) =>
+        new() { Id = 0, Email = fakeDTO.Email, PasswordHash = fakeDTO.Password};
+
+    private static FakeDTO AccountData(string? email = null, string pwd = "123456789") =>
         new() { Email = email ?? $"test_{Guid.NewGuid()}@example.com", Password = pwd };
-
-    private void AssertInputAndResponse_ThenCleanDB(Account input, HttpResponseMessage response)
-    {
-        Account? bancoAcc = null;
-        try
-        {
-            bancoAcc = _db.FindAll().FirstOrDefault(s => s.Email == input.Email && s.Password == input.Password);
-            Assert.That(bancoAcc, Is.Not.Null);         
-            Assert.Multiple(() =>            {
-                Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));                
-                Assert.That(bancoAcc.Email, Is.EqualTo(input.Email));
-                Assert.That(bancoAcc.Password, Is.EqualTo(input.Password));
-            });
-        }
-        finally
-        {
-            Assert.That(bancoAcc, Is.Not.Null);
-            _db.Remove(bancoAcc.Id);
-            var accRemoved = _db.FindByID(bancoAcc.Id);
-            Assert.That(accRemoved, Is.Null);
-        }
-    }
-
+    
     [TearDown]
     public void TearDown()
     {

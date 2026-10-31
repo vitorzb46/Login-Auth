@@ -24,7 +24,7 @@ public class DBFindById
     [Test]
     public void FindByID_WithValidId_ShouldReturnMatchingAccount()
     {
-        var input = new Account { Email = "ttt@gg.com", Password = "123456789" };
+        var input = new Account { Email = "ttt@gg.com", PasswordHash = "123456789" };
         bool result = _db.Add(input);
         var output = FindAccount(input);
         var outputById = _db.FindByID(output?.Id);
@@ -34,7 +34,7 @@ public class DBFindById
             Assert.That(output, Is.Not.Null);
             Assert.That(outputById, Is.Not.Null);
             Assert.That(outputById?.Email, Is.EqualTo(input.Email));
-            Assert.That(outputById?.Password, Is.EqualTo(input.Password));
+            Assert.That(outputById?.PasswordHash, Is.EqualTo(input.PasswordHash));
         });
         _db.Remove(output.Id);
 

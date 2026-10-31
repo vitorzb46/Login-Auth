@@ -24,8 +24,8 @@ public class DBFindAll
     [Test]
     public void FindAll_WhenAccountsExist_ReturnsAllAccountsFromDatabase()
     {
-        var account1 = new Account { Email = "user1@gg.com", Password = "password123" };
-        var account2 = new Account { Email = "user2@gg.com", Password = "password456" };
+        var account1 = new Account { Email = "user1@gg.com", PasswordHash = "password123" };
+        var account2 = new Account { Email = "user2@gg.com", PasswordHash = "password456" };
         
         _db.Add(account1);
         _db.Add(account2);
@@ -39,10 +39,10 @@ public class DBFindAll
             var testAccount2 = result?.FirstOrDefault(a => a.Email == account2.Email);
 
             Assert.That(testAccount1, Is.Not.Null, "Account 1 has not been found in FindAll");
-            Assert.That(testAccount1?.Password, Is.EqualTo(account1.Password));
+            Assert.That(testAccount1?.PasswordHash, Is.EqualTo(account1.PasswordHash));
 
             Assert.That(testAccount2, Is.Not.Null, "Account 2 has not been found in FindAll");
-            Assert.That(testAccount2?.Password, Is.EqualTo(account2.Password));
+            Assert.That(testAccount2?.PasswordHash, Is.EqualTo(account2.PasswordHash));
         });
         
         var dbAccount1 = _db.FindAll().FirstOrDefault(a => a.Email == account1.Email);
