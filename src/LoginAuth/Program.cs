@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using LoginAuth.Data.Abstraction;
 using LoginAuth.DependencyInjection;
 using LoginAuth.DTO;
@@ -72,5 +73,22 @@ app.MapPost("/login", (LoginRequest request,
 
     return Results.Ok(token);
 }).AllowAnonymous();
+
+app.MapPost("/protected", (ClaimsPrincipal user) =>
+{
+    var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value 
+                 ?? user.FindFirst("sub")?.Value;
+                 
+    var email = user.FindFirst(ClaimTypes.Email)?.Value 
+                ?? user.FindFirst("email")?.Value;
+                
+    return Results.Ok(new
+    {
+        Message = "User authenticated!",
+        UserId = userId,
+        Email = email,
+        ValidatedAt = DateTime.UtcNow
+    });
+}).RequireAuthorization(); 
 
 app.Run();
