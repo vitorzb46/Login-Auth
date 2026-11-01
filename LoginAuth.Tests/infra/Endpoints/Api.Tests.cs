@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection;
 using System.Net;
 using System.Net.Http.Json;
+using static LoginAuth.Security.Tokens;
 
 namespace LoginAuth.Tests.infra.Endpoints;
 
@@ -13,6 +14,7 @@ public class Api
     private HttpClient _client;
     private IServiceScope _scope;
     private DatabaseAbstract<Account> _db;
+    private DatabaseAbstract<RefreshToken> _dbToken;
     private PasswordHasher<string> _hasher;
 
     [OneTimeSetUp]
@@ -27,6 +29,7 @@ public class Api
     {
         _scope = _factory.Services.CreateScope();
         _db = _scope.ServiceProvider.GetRequiredService<DatabaseAbstract<Account>>();
+        _dbToken = _scope.ServiceProvider.GetRequiredService<DatabaseAbstract<RefreshToken>>();
         _hasher = new PasswordHasher<string>();
     }
 
@@ -34,16 +37,16 @@ public class Api
     public async Task RegisterNewAccount_ShouldReturnOk()
     {
         var input = AccountData();
-        var response = await _client.PostAsJsonAsync("/register", input);   
+        var response = await _client.PostAsJsonAsync("/register", input);
         var bankAcc = _db.FindAll().FirstOrDefault(a => a.Email == input.Email);
         try
         {
-            Assert.That(bankAcc, Is.Not.Null);   
+            Assert.That(bankAcc, Is.Not.Null);
             Assert.Multiple(() =>
             {
-                var verifyHash = _hasher.VerifyHashedPassword(input.Email, bankAcc.PasswordHash, input.Password);     
+                var verifyHash = _hasher.VerifyHashedPassword(input.Email, bankAcc.PasswordHash, input.Password);
                 Assert.That(verifyHash, Is.EqualTo(PasswordVerificationResult.Success));
-                Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));            
+                Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
                 Assert.That(bankAcc?.Email, Is.EqualTo(input.Email));
             });
         }
@@ -68,13 +71,20 @@ public class Api
     public async Task SignIn_WithExistingAccount_ShouldReturnOk()
     {
         var input = AccountData();
-        var output = await _client.PostAsJsonAsync("/register", input);        
+        var output = await _client.PostAsJsonAsync("/register", input);
         var response = await _client.PostAsJsonAsync("/login", input);
         var bankAcc = _db.FindAll().FirstOrDefault(a => a.Email == input.Email);
+        var savedRefreshToken = _dbToken.FindAll().FirstOrDefault(a => a.AccountId == bankAcc?.Id);
         try
         {
             Assert.That(bankAcc, Is.Not.Null);
             var verifyHash = _hasher.VerifyHashedPassword(input.Email, bankAcc.PasswordHash, input.Password);
+            var tokenResult = await response.Content.ReadFromJsonAsync<TokenAuth>();
+            Assert.Multiple(() =>
+            {
+                Assert.That(savedRefreshToken, Is.Not.Null);
+                Assert.That(tokenResult, Is.Not.Null);
+            });
             Assert.Multiple(() =>
             {
                 Assert.That(output.StatusCode, Is.EqualTo(HttpStatusCode.OK));
@@ -82,11 +92,20 @@ public class Api
                 Assert.That(verifyHash, Is.EqualTo(PasswordVerificationResult.Success));
                 Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
                 Assert.That(bankAcc?.Email, Is.EqualTo(input.Email));
+
+
+                Assert.That(tokenResult.AccessToken, Is.Not.Null.Or.Empty);
+                Assert.That(tokenResult.RefreshToken, Is.Not.Null.Or.Empty);
+
+                Assert.That(savedRefreshToken.Token, Is.Not.Null.Or.Empty);
+                Assert.That(savedRefreshToken.Token, Is.EqualTo(tokenResult.RefreshToken));
+                Assert.That(savedRefreshToken.ExpiresAt, Is.GreaterThan(DateTime.UtcNow));
             });
         }
         finally
         {
             _db.Remove(bankAcc?.Id);
+            _dbToken.Remove(savedRefreshToken?.AccountId);
         }
     }
 
@@ -104,11 +123,11 @@ public class Api
     }
 
     private static Account AccountMap(FakeDTO fakeDTO) =>
-        new() { Id = 0, Email = fakeDTO.Email, PasswordHash = fakeDTO.Password};
+        new() { Id = 0, Email = fakeDTO.Email, PasswordHash = fakeDTO.Password };
 
     private static FakeDTO AccountData(string? email = null, string pwd = "123456789") =>
         new() { Email = email ?? $"test_{Guid.NewGuid()}@example.com", Password = pwd };
-    
+
     [TearDown]
     public void TearDown()
     {

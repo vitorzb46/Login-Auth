@@ -12,8 +12,8 @@ public class TokenTable(IConfiguration configuration) : DatabaseAbstract<Refresh
         try
         {
             var sqlInsert = @"
-                INSERT INTO [RefreshToken] ([Id], [Token], [Account], [AccountId], [ExpiresAt])
-                VALUES (@Id, @Token, @Account, @AccountId, @)";
+                INSERT INTO [RefreshToken] ([Id], [Token], [AccountId], [ExpiresAt])
+                VALUES (@Id, @Token, @AccountId, @ExpiresAt)";
             var changedRows = SqlConnected(conn => conn.Execute(sqlInsert, item));
             return changedRows > 0;
         }
@@ -24,7 +24,7 @@ public class TokenTable(IConfiguration configuration) : DatabaseAbstract<Refresh
     {
         try
         {
-            var changedRows = SqlConnected(conn => conn.Execute("DELETE FROM RefreshToken WHERE Id = @Id", new { Id = id }));
+            var changedRows = SqlConnected(conn => conn.Execute("DELETE FROM RefreshToken WHERE AccountId = @AccountId", new { AccountId = id }));
             return changedRows > 0;
         }
         catch (SqliteException) { return false; }
@@ -48,7 +48,7 @@ public class TokenTable(IConfiguration configuration) : DatabaseAbstract<Refresh
 
     public override IEnumerable<RefreshToken> FindAll() =>
         SqlConnected(conn => conn.Query<RefreshToken>("SELECT * FROM RefreshToken"));
-        
+
     private T SqlConnected<T>(Func<SqliteConnection, T> func)
     {
         using var connection = new SqliteConnection(ConnectionString);

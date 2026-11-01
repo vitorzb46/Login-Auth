@@ -1,5 +1,4 @@
-﻿using System.Text;
-using LoginAuth.Data;
+﻿using LoginAuth.Data;
 using LoginAuth.Data.Abstraction;
 using LoginAuth.ErrorMessages;
 using LoginAuth.Model;
@@ -7,6 +6,7 @@ using LoginAuth.Security;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.IdentityModel.Tokens;
+using System.Text;
 
 namespace LoginAuth.DependencyInjection;
 
@@ -21,12 +21,13 @@ static class DI
             services.AddSingleton<AccountPasswordHasher>();
             services.AddScoped<DatabaseAbstract<Account>, Database>();
             services.AddScoped<DatabaseAbstract<RefreshToken>, TokenTable>();
+            services.AddSingleton<Tokens>();
             return services;
         }
 
         private IServiceCollection JwtAuthentication(IServiceCollection sc, WebApplicationBuilder builder)
         {
-            string secretKey = builder.Configuration["Jwt:SecretKey"] 
+            string secretKey = builder.Configuration["Jwt:SecretKey"]
                 ?? throw new NullReferenceException(SystemErrorMessage.SecretKeyNotFound);
 
             byte[] key = Encoding.ASCII.GetBytes(secretKey);

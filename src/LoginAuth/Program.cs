@@ -37,23 +37,40 @@ app.MapPost("/register", (RegisterRequest request, DatabaseAbstract<Account> dat
 {
     if (!request.Validate())
         return Results.BadRequest(AccountErrorMessage.EmailOrPasswordInvalid);
-        
+
     if (!database.Add(hasher.HashPassword(request)))
         return Results.BadRequest(AccountErrorMessage.EmailOrPasswordInvalid);
 
     return Results.Ok();
 }).AllowAnonymous();
 
-app.MapPost("/login", (LoginRequest request, DatabaseAbstract<Account> database, AccountPasswordHasher hasher) =>
+app.MapPost("/login", (LoginRequest request,
+                       AccountPasswordHasher hasher,
+                       DatabaseAbstract<Account> accountTable,
+                       DatabaseAbstract<RefreshToken> tokenTable,
+                       Tokens tokens) =>
 {
-    var getAccount = Account.Restore(database, request.Email);
+    var getAccount = Account.Restore(accountTable, request.Email);
     if (getAccount is null)
         return Results.BadRequest(AccountErrorMessage.EmailOrPasswordInvalid);
-        
+
     if (!hasher.VerifyPassword(request, getAccount.PasswordHash))
         return Results.Unauthorized();
 
-    return Results.Ok();
+    // token
+    var token = tokens.Generate(getAccount.Id.ToString(), getAccount.Email);
+    // save refresh token on db
+    var rt = new RefreshToken
+    {
+        Id = Guid.NewGuid().ToString(),
+        AccountId = getAccount.Id,
+        Token = token.RefreshToken,
+        ExpiresAt = DateTime.UtcNow.AddDays(7)
+    };
+
+    tokenTable.Add(rt);
+
+    return Results.Ok(token);
 }).AllowAnonymous();
 
 app.Run();

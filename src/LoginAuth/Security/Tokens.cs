@@ -1,9 +1,9 @@
-using System.Security.Claims;
-using System.Security.Cryptography;
-using System.Text;
 using LoginAuth.ErrorMessages;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
+using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace LoginAuth.Security;
 
@@ -19,20 +19,22 @@ public sealed class Tokens
     public Tokens(IConfiguration configuration)
     {
         _configuration = configuration;
-        string secretKey = _configuration[JwtKey] 
+        string secretKey = _configuration[JwtKey]
             ?? throw new NullReferenceException(SystemErrorMessage.SecretKeyNotFound);
 
         key = Encoding.ASCII.GetBytes(secretKey);
     }
 
-    public TokenAuth Generate(string userId, string userEmail) => 
-        new(AcessToken(userId, userEmail), Convert.ToBase64String(RandomNumberGenerator.GetBytes(64)));
+    public TokenAuth Generate(string userId, string userEmail) =>
+        new(AcessToken(userId, userEmail), RefreshToken());
 
     private string AcessToken(string userId, string userEmail)
     {
         JsonWebTokenHandler handler = new();
         return handler.CreateToken(GetTokenDescriptor(userId, userEmail));
     }
+
+    private static string RefreshToken() => Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
 
     private SecurityTokenDescriptor GetTokenDescriptor(string userId, string userEmail) =>
         new()
@@ -44,7 +46,7 @@ public sealed class Tokens
             SigningCredentials = GetSigningCredentials()
         };
 
-    private SigningCredentials GetSigningCredentials() => 
+    private SigningCredentials GetSigningCredentials() =>
         new(new SymmetricSecurityKey(key),
             SecurityAlgorithms.HmacSha256Signature);
 
