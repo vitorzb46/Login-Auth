@@ -1,6 +1,6 @@
 ﻿namespace LoginAuth.ErrorMessages;
 
-public class AccountErrorMessage
+public sealed class AccountErrorMessage
 {
     public static readonly string EmailOrPasswordInvalid = "Login or password invalid!";
     public static readonly string AccountNotFound = "Account not found!";
