@@ -1,3 +1,5 @@
+using LoginAuth.Data.Abstraction;
+using LoginAuth.Model;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Negotiate;
 using Microsoft.AspNetCore.Hosting;
@@ -5,6 +7,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace LoginAuth.Tests;
 
@@ -26,6 +29,10 @@ public class ApiWebApplicationFactory : WebApplicationFactory<Program>
                     options.SchemeMap.Remove(NegotiateDefaults.AuthenticationScheme);
                 }
             });
+
+            services.RemoveAll<DatabaseAbstract<Account>>();
+            services.AddSingleton<DatabaseAbstract<Account>, FakeDatabase>();
+            services.AddSingleton<DatabaseAbstract<RefreshToken>, FakeTokenTable>();
         });
     }
 }
