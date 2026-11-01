@@ -21,7 +21,7 @@ builder.Services.AddAuthorization(options =>
     options.FallbackPolicy = options.DefaultPolicy;
 });
 
-builder.Services.AddDependencies();
+builder.Services.AddDependencies(builder);
 
 var app = builder.Build();
 
