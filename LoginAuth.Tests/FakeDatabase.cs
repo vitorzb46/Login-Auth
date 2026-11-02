@@ -7,9 +7,15 @@ namespace LoginAuth.Tests;
 public class FakeDatabase(IConfiguration configuration) : DatabaseAbstract<Account>(configuration)
 {
     private List<Account> _accounts = [];
+    private int _currentId = 1;
 
     public override bool Add(Account item)
     {
+        // Simula a constraint UNIQUE do banco de dados
+        if (_accounts.Any(a => a.Email == item.Email)) return false;
+        
+        // Simula o AUTOINCREMENT
+        item.Id = _currentId++;
         _accounts.Add(item);
         return true;
     }

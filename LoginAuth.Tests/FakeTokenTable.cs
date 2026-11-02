@@ -16,13 +16,9 @@ public class FakeTokenTable(IConfiguration configuration) : DatabaseAbstract<Ref
 
     public override IEnumerable<RefreshToken> FindAll() => _accounts;
 
-    public override RefreshToken? FindByID(int? id)
-    {
-        return _accounts.FirstOrDefault(a => ToString(a, id)) ?? null;
-    }
-
-    
-
+    public override RefreshToken? FindByID(int? id) =>
+        _accounts.FirstOrDefault(a => ToString(a, id)) ?? null;
+        
     public override bool Remove(int? id)
     {
         var item = _accounts.FirstOrDefault(a => ToString(a, id));
