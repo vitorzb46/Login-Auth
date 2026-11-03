@@ -26,15 +26,15 @@ public class DBFindAll
     {
         var account1 = new Account { Email = "user1@gg.com", PasswordHash = "password123" };
         var account2 = new Account { Email = "user2@gg.com", PasswordHash = "password456" };
-        
+
         _db.Add(account1);
         _db.Add(account2);
         var result = _db.FindAll().ToList();
-        Assert.Multiple(() =>
+        using (Assert.EnterMultipleScope())
         {
             Assert.That(result, Is.Not.Null);
             Assert.That(result, Has.Count.GreaterThanOrEqualTo(2));
-            
+
             var testAccount1 = result?.FirstOrDefault(a => a.Email == account1.Email);
             var testAccount2 = result?.FirstOrDefault(a => a.Email == account2.Email);
 
@@ -43,15 +43,15 @@ public class DBFindAll
 
             Assert.That(testAccount2, Is.Not.Null, "Account 2 has not been found in FindAll");
             Assert.That(testAccount2?.PasswordHash, Is.EqualTo(account2.PasswordHash));
-        });
-        
+        }
+
         var dbAccount1 = _db.FindAll().FirstOrDefault(a => a.Email == account1.Email);
         var dbAccount2 = _db.FindAll().FirstOrDefault(a => a.Email == account2.Email);
-        
-        _db.Remove(dbAccount1?.Id); 
-        _db.Remove(dbAccount2?.Id); 
+
+        _db.Remove(dbAccount1?.Id);
+        _db.Remove(dbAccount2?.Id);
     }
-    
+
     [TearDown]
     public void TearDown() => _scope.Dispose();
 

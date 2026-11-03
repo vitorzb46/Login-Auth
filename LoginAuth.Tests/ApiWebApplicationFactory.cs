@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Time.Testing;
 
 namespace LoginAuth.Tests;
 
@@ -31,6 +32,13 @@ public class ApiWebApplicationFactory : WebApplicationFactory<Program>
             });
 
             services.RemoveAll<DatabaseAbstract<Account>>();
+            services.RemoveAll<TimeProvider>();
+
+            var fakeTimeProvider = new FakeTimeProvider(new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero));
+            services.AddSingleton<TimeProvider>(fakeTimeProvider);
+
+            services.ConfigureOptions<CustomValidatorJwtBearerOptions>();
+
             services.AddSingleton<DatabaseAbstract<Account>, FakeDatabase>();
             services.AddSingleton<DatabaseAbstract<RefreshToken>, FakeTokenTable>();
         });

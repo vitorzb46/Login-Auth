@@ -1,4 +1,3 @@
-using System.Security.Claims;
 using LoginAuth.Data.Abstraction;
 using LoginAuth.DependencyInjection;
 using LoginAuth.DTO;
@@ -7,6 +6,7 @@ using LoginAuth.Model;
 using LoginAuth.Security;
 using LoginAuth.Validation;
 using Microsoft.AspNetCore.Authentication.Negotiate;
+using System.Security.Claims;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -49,7 +49,8 @@ app.MapPost("/login", (LoginRequest request,
                        AccountPasswordHasher hasher,
                        DatabaseAbstract<Account> accountTable,
                        DatabaseAbstract<RefreshToken> tokenTable,
-                       Tokens tokens) =>
+                       Tokens tokens,
+                       TimeProvider timeProvider) =>
 {
     var getAccount = Account.Restore(accountTable, request.Email);
     if (getAccount is null)
@@ -57,6 +58,8 @@ app.MapPost("/login", (LoginRequest request,
 
     if (!hasher.VerifyPassword(request, getAccount.PasswordHash))
         return Results.Unauthorized();
+
+    var currentUtc = timeProvider.GetUtcNow().UtcDateTime;
 
     // token
     var token = tokens.Generate(getAccount.Id.ToString(), getAccount.Email);
@@ -66,7 +69,7 @@ app.MapPost("/login", (LoginRequest request,
         Id = Guid.NewGuid().ToString(),
         AccountId = getAccount.Id,
         Token = token.RefreshToken,
-        ExpiresAt = DateTime.UtcNow.AddDays(7)
+        ExpiresAt = currentUtc.AddDays(7)
     };
 
     tokenTable.Add(rt);
@@ -74,21 +77,65 @@ app.MapPost("/login", (LoginRequest request,
     return Results.Ok(token);
 }).AllowAnonymous();
 
-app.MapPost("/protected", (ClaimsPrincipal user) =>
+app.MapPost("/protected", (ClaimsPrincipal user, TimeProvider timeProvider) =>
 {
-    var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value 
+    var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value
                  ?? user.FindFirst("sub")?.Value;
-                 
-    var email = user.FindFirst(ClaimTypes.Email)?.Value 
+
+    var email = user.FindFirst(ClaimTypes.Email)?.Value
                 ?? user.FindFirst("email")?.Value;
-                
+
+    var currentUtc = timeProvider.GetUtcNow().UtcDateTime;
+
     return Results.Ok(new
     {
         Message = "User authenticated!",
         UserId = userId,
         Email = email,
-        ValidatedAt = DateTime.UtcNow
+        ValidatedAt = currentUtc
     });
-}).RequireAuthorization(); 
+}).RequireAuthorization();
+
+app.MapPost("/refresh", (RefreshRequest request,
+                         DatabaseAbstract<Account> accountTable,
+                         DatabaseAbstract<RefreshToken> tokenTable,
+                         Tokens tokens,
+                         TimeProvider timeProvider,
+                         ClaimsPrincipal user) =>
+{
+    var oldToken = tokenTable.FindAll().FirstOrDefault(t => t.Token == request.RefreshToken);
+    var currentUtc = timeProvider.GetUtcNow().UtcDateTime;
+
+    if (oldToken is null || oldToken.ExpiresAt <= currentUtc)
+    {
+        RevokeAndUpdateDb(tokenTable, oldToken, 1);
+        return Results.Unauthorized();
+    }
+
+    var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                 ?? user.FindFirst("sub")?.Value;
+
+    var email = user.FindFirst(ClaimTypes.Email)?.Value
+                ?? user.FindFirst("email")?.Value;
+
+    if (userId is null || email is null)
+        return Results.BadRequest("User credentials not found!");
+
+    var newTokens = tokens.Generate(userId, email);
+
+    oldToken.Token = newTokens.RefreshToken;
+    oldToken.ExpiresAt = currentUtc.AddDays(7);
+    RevokeAndUpdateDb(tokenTable, oldToken);
+
+    return Results.Ok(oldToken);
+
+    static void RevokeAndUpdateDb(DatabaseAbstract<RefreshToken> tokenTable, RefreshToken? oldToken, int isRevoked = 0)
+    {
+        if (oldToken is null) return;
+        oldToken.IsRevoked = isRevoked;
+        tokenTable.Update(oldToken);
+    }
+
+}).RequireAuthorization();
 
 app.Run();

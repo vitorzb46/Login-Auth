@@ -42,13 +42,13 @@ public class Api
         try
         {
             Assert.That(bankAcc, Is.Not.Null);
-            Assert.Multiple(() =>
+            using (Assert.EnterMultipleScope())
             {
                 var verifyHash = _hasher.VerifyHashedPassword(input.Email, bankAcc.PasswordHash, input.Password);
                 Assert.That(verifyHash, Is.EqualTo(PasswordVerificationResult.Success));
                 Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
                 Assert.That(bankAcc?.Email, Is.EqualTo(input.Email));
-            });
+            }
         }
         finally
         {
@@ -80,12 +80,12 @@ public class Api
             Assert.That(bankAcc, Is.Not.Null);
             var verifyHash = _hasher.VerifyHashedPassword(input.Email, bankAcc.PasswordHash, input.Password);
             var tokenResult = await response.Content.ReadFromJsonAsync<TokenAuth>();
-            Assert.Multiple(() =>
+            using (Assert.EnterMultipleScope())
             {
                 Assert.That(savedRefreshToken, Is.Not.Null);
                 Assert.That(tokenResult, Is.Not.Null);
-            });
-            Assert.Multiple(() =>
+            }
+            using (Assert.EnterMultipleScope())
             {
                 Assert.That(output.StatusCode, Is.EqualTo(HttpStatusCode.OK));
                 Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
@@ -93,14 +93,15 @@ public class Api
                 Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
                 Assert.That(bankAcc?.Email, Is.EqualTo(input.Email));
 
+                Assert.That(tokenResult.AccessToken, Is.Not.Empty);
+                Assert.That(tokenResult.RefreshToken, Is.Not.Empty);
 
-                Assert.That(tokenResult.AccessToken, Is.Not.Null.Or.Empty);
-                Assert.That(tokenResult.RefreshToken, Is.Not.Null.Or.Empty);
-
-                Assert.That(savedRefreshToken.Token, Is.Not.Null.Or.Empty);
+                Assert.That(savedRefreshToken.Token, Is.Not.Empty);
                 Assert.That(savedRefreshToken.Token, Is.EqualTo(tokenResult.RefreshToken));
-                Assert.That(savedRefreshToken.ExpiresAt, Is.GreaterThan(DateTime.UtcNow));
-            });
+
+                var timeProvider = _factory.Services.GetRequiredService<TimeProvider>();
+                Assert.That(savedRefreshToken.ExpiresAt, Is.GreaterThan(timeProvider.GetUtcNow().UtcDateTime));
+            }
         }
         finally
         {
@@ -115,11 +116,11 @@ public class Api
         var input = AccountData(pwd: "1234567");
         var response = await _client.PostAsJsonAsync("/login", input);
         var bankAcc = _db.FindAll().FirstOrDefault(a => a.Email == input.Email);
-        Assert.Multiple(() =>
+        using (Assert.EnterMultipleScope())
         {
             Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
             Assert.That(bankAcc, Is.Null);
-        });
+        }
     }
 
     private static Account AccountMap(FakeDTO fakeDTO) =>

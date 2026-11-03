@@ -11,14 +11,17 @@ public sealed class Tokens
 {
     public sealed record TokenAuth(string AccessToken, string RefreshToken);
     private readonly IConfiguration _configuration;
+    private readonly TimeProvider _timeProvider;
     private readonly byte[] key = [];
     private readonly string JwtKey = "Jwt:SecretKey";
     private readonly string JwtIssuer = "Jwt:Issuer";
     private readonly string JwtAudience = "Jwt:Audience";
 
-    public Tokens(IConfiguration configuration)
+    public Tokens(IConfiguration configuration, TimeProvider timeProvider)
     {
         _configuration = configuration;
+        _timeProvider = timeProvider;
+
         string secretKey = _configuration[JwtKey]
             ?? throw new NullReferenceException(SystemErrorMessage.SecretKeyNotFound);
 
@@ -36,15 +39,20 @@ public sealed class Tokens
 
     private static string RefreshToken() => Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
 
-    private SecurityTokenDescriptor GetTokenDescriptor(string userId, string userEmail) =>
-        new()
+    private SecurityTokenDescriptor GetTokenDescriptor(string userId, string userEmail)
+    {
+        var currentUtc = _timeProvider.GetUtcNow().UtcDateTime;
+        return new()
         {
             Subject = GetClaimsIdentity(userId, userEmail),
-            Expires = DateTime.UtcNow.AddMinutes(15),
+            IssuedAt = currentUtc,
+            NotBefore = currentUtc,
+            Expires = currentUtc.AddMinutes(15),
             Issuer = _configuration[JwtIssuer],
             Audience = _configuration[JwtAudience],
             SigningCredentials = GetSigningCredentials()
         };
+    }
 
     private SigningCredentials GetSigningCredentials() =>
         new(new SymmetricSecurityKey(key),

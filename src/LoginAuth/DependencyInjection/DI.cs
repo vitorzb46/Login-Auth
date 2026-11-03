@@ -17,6 +17,8 @@ static class DI
         public IServiceCollection AddDependencies(WebApplicationBuilder builder)
         {
             services.JwtAuthentication(services, builder);
+
+            services.AddSingleton(TimeProvider.System);
             services.AddSingleton<PasswordHasher<string>>();
             services.AddSingleton<AccountPasswordHasher>();
             services.AddScoped<DatabaseAbstract<Account>, Database>();

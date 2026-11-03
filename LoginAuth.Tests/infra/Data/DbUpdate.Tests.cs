@@ -24,25 +24,25 @@ public class DBUpdate
     [Test]
     public void UpdateAccountAtDatabaseThenRemoveFromDB()
     {
-        var input = new Account { Email = "teste@zz.com", PasswordHash = "123456789" };  
-        Account? inputUpdate = null;      
+        var input = new Account { Email = "teste@zz.com", PasswordHash = "123456789" };
+        Account? inputUpdate = null;
         try
         {
             bool res = _db.Add(input);
             var dbOutput = FindAccount(input);
             Assert.That(dbOutput, Is.Not.Null);
-    
+
             inputUpdate = new Account { Id = dbOutput.Id, Email = "testeUpdated@zz.com", PasswordHash = "123456789" };
             bool isUpdated = _db.Update(inputUpdate);
-            var updateOutput = FindAccount(inputUpdate);        
-            Assert.Multiple(() =>
+            var updateOutput = FindAccount(inputUpdate);
+            using (Assert.EnterMultipleScope())
             {
-                Assert.That(res, Is.True);            
-                Assert.That(isUpdated, Is.True);            
+                Assert.That(res, Is.True);
+                Assert.That(isUpdated, Is.True);
                 Assert.That(updateOutput, Is.Not.Null);
                 Assert.That(updateOutput?.Email, Is.EqualTo(inputUpdate.Email));
                 Assert.That(updateOutput?.PasswordHash, Is.EqualTo(inputUpdate.PasswordHash));
-            });
+            }
         }
         finally
         {

@@ -35,8 +35,8 @@ public class TokenTable(IConfiguration configuration) : DatabaseAbstract<Refresh
         try
         {
             var sqlUpdate = @"
-                UPDATE RefreshToken SET IsRevoked = 1 WHERE Id = @Id";
-            var changedRows = SqlConnected(conn => conn.Execute(sqlUpdate, item.Id));
+                UPDATE RefreshToken SET Token = @Token, ExpiresAt = @ExpiresAt, IsRevoked = @IsRevoked, WHERE Id = @Id";
+            var changedRows = SqlConnected(conn => conn.Execute(sqlUpdate, item));
             return changedRows > 0;
         }
         catch (SqliteException) { return false; }

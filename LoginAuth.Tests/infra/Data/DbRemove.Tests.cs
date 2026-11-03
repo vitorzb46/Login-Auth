@@ -29,11 +29,11 @@ public class DBRemove
         var saved = FindAccount(acc);
         _db.Remove(saved?.Id);
         var savedAfterRemoved = FindAccount(acc);
-        Assert.Multiple(() =>
+        using (Assert.EnterMultipleScope())
         {
             Assert.That(result, Is.True);
             Assert.That(savedAfterRemoved, Is.Null);
-        });
+        }
 
         Account? FindAccount(Account acc) => _db.FindAll().FirstOrDefault(a => a.Email == acc.Email);
     }

@@ -27,13 +27,13 @@ public class DBAdd
         var acc = new Account { Email = $"{Guid.NewGuid()}@gg.com", PasswordHash = "123456789" };
         bool result = _db.Add(acc);
         var saved = _db.FindAll().FirstOrDefault(a => a.Email == acc.Email);
-        Assert.Multiple(() =>
+        using (Assert.EnterMultipleScope())
         {
             Assert.That(result, Is.True);
             Assert.That(saved, Is.Not.Null);
             Assert.That(saved?.Email, Is.EqualTo(acc.Email));
             Assert.That(saved?.PasswordHash, Is.EqualTo(acc.PasswordHash));
-        });
+        }
         _db.Remove(saved.Id);
     }
 

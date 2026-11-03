@@ -28,14 +28,14 @@ public class DBFindById
         bool result = _db.Add(input);
         var output = FindAccount(input);
         var outputById = _db.FindByID(output?.Id);
-        Assert.Multiple(() =>
+        using (Assert.EnterMultipleScope())
         {
             Assert.That(result, Is.True);
             Assert.That(output, Is.Not.Null);
             Assert.That(outputById, Is.Not.Null);
             Assert.That(outputById?.Email, Is.EqualTo(input.Email));
             Assert.That(outputById?.PasswordHash, Is.EqualTo(input.PasswordHash));
-        });
+        }
         _db.Remove(output.Id);
 
         Account? FindAccount(Account acc) => _db.FindAll().FirstOrDefault(a => a.Email == acc.Email);
