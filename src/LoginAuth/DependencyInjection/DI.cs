@@ -5,6 +5,7 @@ using LoginAuth.Model;
 using LoginAuth.Security;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 
@@ -17,6 +18,7 @@ static class DI
         public IServiceCollection AddDependencies(WebApplicationBuilder builder)
         {
             services.JwtAuthentication(services, builder);
+            services.RateLimiter(services);
 
             services.AddSingleton(TimeProvider.System);
             services.AddSingleton<PasswordHasher<string>>();
@@ -52,6 +54,21 @@ static class DI
                     ValidateLifetime = true,
                     ClockSkew = TimeSpan.Zero
                 };
+            });
+            return sc;
+        }
+
+        private IServiceCollection RateLimiter(IServiceCollection sc)
+        {
+            sc.AddRateLimiter(options =>
+            {
+                options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+                options.AddFixedWindowLimiter("fixed-policy", opt =>
+                {
+                    opt.PermitLimit = 5; // 10 requests in border effect
+                    opt.Window = TimeSpan.FromMinutes(1);
+                });
             });
             return sc;
         }

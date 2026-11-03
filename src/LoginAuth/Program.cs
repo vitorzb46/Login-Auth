@@ -26,6 +26,10 @@ builder.Services.AddDependencies(builder);
 
 var app = builder.Build();
 
+app.UseAuthentication();
+app.UseAuthorization();
+app.UseRateLimiter();
+
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
@@ -43,7 +47,8 @@ app.MapPost("/register", (RegisterRequest request, DatabaseAbstract<Account> dat
         return Results.BadRequest(AccountErrorMessage.EmailOrPasswordInvalid);
 
     return Results.Ok();
-}).AllowAnonymous();
+}).AllowAnonymous()
+  .RequireRateLimiting("fixed-policy");
 
 app.MapPost("/login", (LoginRequest request,
                        AccountPasswordHasher hasher,
@@ -75,7 +80,8 @@ app.MapPost("/login", (LoginRequest request,
     tokenTable.Add(rt);
 
     return Results.Ok(token);
-}).AllowAnonymous();
+}).AllowAnonymous()
+  .RequireRateLimiting("fixed-policy");
 
 app.MapPost("/protected", (ClaimsPrincipal user, TimeProvider timeProvider) =>
 {
