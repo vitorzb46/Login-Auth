@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Threading.RateLimiting;
 using static LoginAuth.Security.Tokens;
 
 namespace LoginAuth.Tests.infra.Endpoints;
@@ -87,7 +88,7 @@ public class AuthToken
         {
             var response = await client.PostAsync("/protected", null);
             Assert.That(response.StatusCode, Is.Not.EqualTo(HttpStatusCode.TooManyRequests));
-        }  
+        }
     }
 
     [Test]
@@ -104,13 +105,13 @@ public class AuthToken
         {
             await client.PostAsync("/protected", null);
         }
-        
+
         var responseUserA = await client.PostAsync("/protected", null);
         Assert.That(responseUserA.StatusCode, Is.EqualTo(HttpStatusCode.TooManyRequests));
-        
+
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokenUserB.AccessToken);
         var responseUserB = await client.PostAsync("/protected", null);
-        
+
         Assert.That(responseUserB.StatusCode, Is.EqualTo(HttpStatusCode.OK));
     }
 
@@ -182,7 +183,7 @@ public class AuthToken
         using var factory = new ApiWebApplicationFactory();
         using var client = factory.CreateClient();
         var acc = AccountData();
-        const string RequestUri = "/login";  
+        const string RequestUri = "/login";
 
         await ForLoop(RequestUri, acc, 5, client);
 
@@ -221,7 +222,57 @@ public class AuthToken
             Assert.That(invalidOutput.Headers.Contains("Retry-After"), Is.True);
         }
     }
-    
+
+    [Test]
+    public void FixedWindow_RequestsThatExceedTheLimit_ShouldReturnFalse()
+    {
+        var timeWindow = TimeSpan.FromMinutes(1);
+        var options = new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 5,
+            Window = timeWindow,
+            AutoReplenishment = false
+        };
+        using var limiter = new FixedWindowRateLimiter(options);
+        var lease1 = limiter.AttemptAcquire(4);
+        var lease2 = limiter.AttemptAcquire(1);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(lease1.IsAcquired, Is.True);
+            Assert.That(lease2.IsAcquired, Is.True);
+        }
+
+        var lease3 = limiter.AttemptAcquire(1);
+        Assert.That(lease3.IsAcquired, Is.False);
+    }
+
+    [Test]
+    public void SlidingWindow_RequestsThatExceedTheLimit_ShouldReturnFalse()
+    {
+        var timeWindow = TimeSpan.FromMinutes(1);
+        var options = new SlidingWindowRateLimiterOptions
+        {
+            PermitLimit = 200,
+            Window = TimeSpan.FromMinutes(1),
+            SegmentsPerWindow = 4,
+            QueueLimit = 0,
+            AutoReplenishment = false
+        };
+        using var limiter = new SlidingWindowRateLimiter(options);
+        var lease1 = limiter.AttemptAcquire(199);
+        var lease2 = limiter.AttemptAcquire(1);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(lease1.IsAcquired, Is.True);
+            Assert.That(lease2.IsAcquired, Is.True);
+        }
+
+        var lease3 = limiter.AttemptAcquire(1);
+        Assert.That(lease3.IsAcquired, Is.False);
+    }
+
     private async Task RegisterForLoop(int iterations, HttpClient client)
     {
         for (int i = 0; i < iterations; i++)
