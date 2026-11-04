@@ -2,7 +2,6 @@ using LoginAuth.Data.Abstraction;
 using LoginAuth.Model;
 using LoginAuth.Security;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Time.Testing;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -13,6 +12,7 @@ namespace LoginAuth.Tests.infra.Endpoints;
 public class AuthToken
 {
     private ApiWebApplicationFactory _factory;
+    private FakeTime _fakeTime;
     private HttpClient _client;
     private IServiceScope _scope;
     private Tokens _tokens;
@@ -22,6 +22,7 @@ public class AuthToken
     public void OneTimeSetUp()
     {
         _factory = new ApiWebApplicationFactory();
+        _fakeTime = new FakeTime(_factory);
         _client = _factory.CreateClient();
     }
 
@@ -33,14 +34,14 @@ public class AuthToken
     }
 
     [Test]
-    public async Task EndpointProtected_WithoutToken_ShouldReturnUnauthorized()
+    public async Task ProtectedEndpoint_WithoutToken_ShouldReturnUnauthorized()
     {
         var response = await _client.PostAsync("/protected", null);
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Unauthorized));
     }
 
     [Test]
-    public async Task EndpointProtected_WithValidToken_ShouldReturnOk()
+    public async Task ProtectedEndpoint_WithValidToken_ShouldReturnOk()
     {
         const string Expected = "User authenticated!";
         const string UserId = "15";
@@ -61,7 +62,7 @@ public class AuthToken
     }
 
     [Test]
-    public async Task EndpointProtected_WithTokenModified_ShouldReturnUnauthorized()
+    public async Task ProtectedEndpoint_WithTokenModified_ShouldReturnUnauthorized()
     {
         var token = _tokens.Generate("15", "zz@example.com");
         var tokenModified = string.Concat(token.AccessToken, "aksmdkasmda12");
@@ -71,6 +72,46 @@ public class AuthToken
 
         var response = await _client.SendAsync(request);
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Unauthorized));
+    }
+
+    [Test]
+    public async Task ProtectedEndpoint_200Requests_ShouldReturnOk()
+    {
+        using var factory = new ApiWebApplicationFactory();
+        using var client = factory.CreateClient();
+
+        var token = _tokens.Generate("15", "test@test.com");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token.AccessToken);
+
+        for (int i = 1; i < 200; i++)
+        {
+            var response = await client.PostAsync("/protected", null);
+            Assert.That(response.StatusCode, Is.Not.EqualTo(HttpStatusCode.TooManyRequests));
+        }  
+    }
+
+    [Test]
+    public async Task ProtectedEndpoint_WhenOneUserHitsLimit_AnotherUserShouldStillHaveAccess()
+    {
+        using var factory = new ApiWebApplicationFactory();
+        using var client = factory.CreateClient();
+
+        var tokenUserA = _tokens.Generate("UserA", "usera@test.com");
+        var tokenUserB = _tokens.Generate("UserB", "userb@test.com");
+
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokenUserA.AccessToken);
+        for (int i = 0; i < 200; i++)
+        {
+            await client.PostAsync("/protected", null);
+        }
+        
+        var responseUserA = await client.PostAsync("/protected", null);
+        Assert.That(responseUserA.StatusCode, Is.EqualTo(HttpStatusCode.TooManyRequests));
+        
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokenUserB.AccessToken);
+        var responseUserB = await client.PostAsync("/protected", null);
+        
+        Assert.That(responseUserB.StatusCode, Is.EqualTo(HttpStatusCode.OK));
     }
 
     [Test]
@@ -87,19 +128,16 @@ public class AuthToken
         var acc = AccountData();
         var register = await _client.PostAsJsonAsync("/register", acc);
         var response = await _client.PostAsJsonAsync("/login", acc);
-
         var output = await response.Content.ReadFromJsonAsync<TokenAuth>();
-        var fakeTime = _factory.Services.GetRequiredService<TimeProvider>() as FakeTimeProvider;
 
         using (Assert.EnterMultipleScope())
         {
             Assert.That(register, Is.Not.Null);
             Assert.That(response, Is.Not.Null);
             Assert.That(output, Is.Not.Null);
-            Assert.That(fakeTime, Is.Not.Null);
         }
 
-        fakeTime.Advance(TimeSpan.FromDays(8));
+        _fakeTime.AdvanceTime(TimeSpan.FromDays(8));
 
         var refreshToken = new { output.RefreshToken };
         var invalidRequest = await _client.PostAsJsonAsync("/refresh", refreshToken);
@@ -126,6 +164,81 @@ public class AuthToken
         var rToken = new { output.RefreshToken };
         var invalidRequest = await _client.PostAsJsonAsync("/refresh", rToken);
         Assert.That(invalidRequest.StatusCode, Is.EqualTo(HttpStatusCode.Unauthorized));
+    }
+
+    [Test]
+    public async Task Login_FiveRequests_ShouldReturnOk()
+    {
+        using var factory = new ApiWebApplicationFactory();
+        using var client = factory.CreateClient();
+        var acc = AccountData();
+
+        await ForLoop("/login", acc, 5, client);
+    }
+
+    [Test]
+    public async Task Login_MoreThanFiveRequests_ShouldReturnTooManyRequests()
+    {
+        using var factory = new ApiWebApplicationFactory();
+        using var client = factory.CreateClient();
+        var acc = AccountData();
+        const string RequestUri = "/login";  
+
+        await ForLoop(RequestUri, acc, 5, client);
+
+        var invalidOutput = await client.PostAsJsonAsync(RequestUri, acc);
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(invalidOutput.StatusCode, Is.EqualTo(HttpStatusCode.TooManyRequests));
+            Assert.That(invalidOutput.Headers.Contains("Retry-After"), Is.True);
+        }
+    }
+
+    [Test]
+    public async Task Register_FiveRequests_ShouldReturnOk()
+    {
+        using var factory = new ApiWebApplicationFactory();
+        using var client = factory.CreateClient();
+
+        await RegisterForLoop(5, client);
+    }
+
+    [Test]
+    public async Task Register_MoreThanFiveRequests_ShouldReturnTooManyRequests()
+    {
+        using var factory = new ApiWebApplicationFactory();
+        using var client = factory.CreateClient();
+        const string RequestUri = "/register";
+
+        await RegisterForLoop(5, client);
+
+        var acc2 = AccountData();
+        var invalidOutput = await client.PostAsJsonAsync(RequestUri, acc2);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(invalidOutput.StatusCode, Is.EqualTo(HttpStatusCode.TooManyRequests));
+            Assert.That(invalidOutput.Headers.Contains("Retry-After"), Is.True);
+        }
+    }
+    
+    private async Task RegisterForLoop(int iterations, HttpClient client)
+    {
+        for (int i = 0; i < iterations; i++)
+        {
+            var acc = AccountData();
+            var output = await client.PostAsJsonAsync("/register", acc);
+            Assert.That(output.StatusCode, Is.Not.EqualTo(HttpStatusCode.TooManyRequests));
+        }
+    }
+
+    private async Task ForLoop(string requestUri, FakeDTO acc, int iterations, HttpClient client)
+    {
+        for (int i = 0; i < iterations; i++)
+        {
+            var output = await client.PostAsJsonAsync(requestUri, acc);
+            Assert.That(output.StatusCode, Is.Not.EqualTo(HttpStatusCode.TooManyRequests));
+        }
     }
 
     private static FakeDTO AccountData(string? email = null, string pwd = "123456789") =>

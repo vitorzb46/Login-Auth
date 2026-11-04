@@ -100,7 +100,8 @@ app.MapPost("/protected", (ClaimsPrincipal user, TimeProvider timeProvider) =>
         Email = email,
         ValidatedAt = currentUtc
     });
-}).RequireAuthorization();
+}).RequireAuthorization()
+  .RequireRateLimiting("user-policy");
 
 app.MapPost("/refresh", (RefreshRequest request,
                          DatabaseAbstract<Account> accountTable,
@@ -142,6 +143,7 @@ app.MapPost("/refresh", (RefreshRequest request,
         tokenTable.Update(oldToken);
     }
 
-}).RequireAuthorization();
+}).RequireAuthorization()
+  .RequireRateLimiting("user-policy");
 
 app.Run();

@@ -7,7 +7,10 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.IdentityModel.Tokens;
+using System.Globalization;
+using System.Security.Claims;
 using System.Text;
+using System.Threading.RateLimiting;
 
 namespace LoginAuth.DependencyInjection;
 
@@ -63,6 +66,48 @@ static class DI
             sc.AddRateLimiter(options =>
             {
                 options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+                options.OnRejected = async (context, cancellationToken) =>
+                {
+                    if (context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter))
+                    {
+                        context.HttpContext.Response.Headers.RetryAfter = 
+                            ((long)Math.Ceiling(retryAfter.TotalSeconds)).ToString(NumberFormatInfo.InvariantInfo);
+                    }
+                    await context.HttpContext.Response.WriteAsync("Rate limit exceeded. Please try again later.", cancellationToken);
+                };
+
+                options.AddPolicy("user-policy", httpContext =>
+                {
+                    var userId = httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value 
+                                ?? httpContext.User.FindFirst("sub")?.Value;
+                                
+                    if (!string.IsNullOrEmpty(userId))
+                    {
+                        return RateLimitPartition.GetSlidingWindowLimiter(
+                            partitionKey: $"user_{userId}",
+                            factory: _ => new SlidingWindowRateLimiterOptions
+                            {
+                                PermitLimit = 200,
+                                Window = TimeSpan.FromMinutes(1),
+                                SegmentsPerWindow = 4,
+                                QueueLimit = 0
+                            });
+                    }
+
+                    // Fallback - Not logged in
+                    var notUserIp = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown-ip";
+                    
+                    return RateLimitPartition.GetSlidingWindowLimiter(
+                        partitionKey: $"ip_{notUserIp}",
+                        factory: _ => new SlidingWindowRateLimiterOptions
+                        {
+                            PermitLimit = 20,
+                            Window = TimeSpan.FromMinutes(1),
+                            SegmentsPerWindow = 4,
+                            QueueLimit = 0
+                        });
+                });
 
                 options.AddFixedWindowLimiter("fixed-policy", opt =>
                 {
