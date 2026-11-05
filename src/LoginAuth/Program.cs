@@ -7,6 +7,7 @@ using LoginAuth.Security;
 using LoginAuth.Validation;
 using Microsoft.AspNetCore.Authentication.Negotiate;
 using System.Security.Claims;
+using static LoginAuth.Security.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -54,8 +55,7 @@ app.MapPost("/login", (LoginRequest request,
                        AccountPasswordHasher hasher,
                        DatabaseAbstract<Account> accountTable,
                        DatabaseAbstract<RefreshToken> tokenTable,
-                       Tokens tokens,
-                       TimeProvider timeProvider) =>
+                       Tokens tokens) =>
 {
     var getAccount = Account.Restore(accountTable, request.Email);
     if (getAccount is null)
@@ -64,20 +64,8 @@ app.MapPost("/login", (LoginRequest request,
     if (!hasher.VerifyPassword(request, getAccount.PasswordHash))
         return Results.Unauthorized();
 
-    var currentUtc = timeProvider.GetUtcNow().UtcDateTime;
-
-    // token
-    var token = tokens.Generate(getAccount.Id.ToString(), getAccount.Email);
-    // save refresh token on db
-    var rt = new RefreshToken
-    {
-        Id = Guid.NewGuid().ToString(),
-        AccountId = getAccount.Id,
-        Token = token.RefreshToken,
-        ExpiresAt = currentUtc.AddDays(7)
-    };
-
-    tokenTable.Add(rt);
+    TokenAuth? token = tokens.PersistNewRefreshToken(getAccount, tokenTable);
+    if (token is null) return Results.InternalServerError();
 
     return Results.Ok(token);
 }).AllowAnonymous()
@@ -101,6 +89,15 @@ app.MapPost("/protected", (ClaimsPrincipal user, TimeProvider timeProvider) =>
         ValidatedAt = currentUtc
     });
 }).RequireAuthorization()
+  .RequireRateLimiting("user-policy");
+
+app.MapPost("/test", () =>
+{
+    return Results.Ok(new
+    {
+        Message = "Test done!"
+    });
+}).AllowAnonymous()
   .RequireRateLimiting("user-policy");
 
 app.MapPost("/refresh", (RefreshRequest request,

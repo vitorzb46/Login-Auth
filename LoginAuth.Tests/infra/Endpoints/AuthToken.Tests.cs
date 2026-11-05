@@ -116,6 +116,22 @@ public class AuthToken
     }
 
     [Test]
+    public async Task TestEndpoint_WithoutJwt_ShouldAllowOnly20Requests()
+    {
+        using var factory = new ApiWebApplicationFactory();
+        using var client = factory.CreateClient();
+
+        for (int i = 0; i < 20; i++)
+        {
+            var response = await client.PostAsync("/test", null);
+            Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        }
+
+        var response2 = await client.PostAsync("/test", null);
+        Assert.That(response2.StatusCode, Is.EqualTo(HttpStatusCode.TooManyRequests));
+    }
+
+    [Test]
     public async Task RefreshToken_WithInvalidToken_ShouldReturnUnauthorized()
     {
         var fakeToken = "invalid-token-123456";
@@ -254,7 +270,7 @@ public class AuthToken
         var options = new SlidingWindowRateLimiterOptions
         {
             PermitLimit = 200,
-            Window = TimeSpan.FromMinutes(1),
+            Window = timeWindow,
             SegmentsPerWindow = 4,
             QueueLimit = 0,
             AutoReplenishment = false

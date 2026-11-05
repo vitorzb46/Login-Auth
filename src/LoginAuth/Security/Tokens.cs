@@ -1,4 +1,6 @@
+using LoginAuth.Data.Abstraction;
 using LoginAuth.ErrorMessages;
+using LoginAuth.Model;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
 using System.Security.Claims;
@@ -26,6 +28,23 @@ public sealed class Tokens
             ?? throw new NullReferenceException(SystemErrorMessage.SecretKeyNotFound);
 
         key = Encoding.ASCII.GetBytes(secretKey);
+    }
+
+    public TokenAuth? PersistNewRefreshToken(Account account, DatabaseAbstract<RefreshToken> tokenTable)
+    {
+        var newTokens = Generate(account.Id.ToString(), account.Email);
+        var currentUtc = _timeProvider.GetUtcNow().UtcDateTime;
+        var rt = new RefreshToken
+        {
+            Id = Guid.NewGuid().ToString(),
+            AccountId = account.Id,
+            Token = newTokens.RefreshToken,
+            ExpiresAt = currentUtc.AddDays(7)
+        };
+
+        if(!tokenTable.Add(rt)) return null;
+
+        return newTokens;
     }
 
     public TokenAuth Generate(string userId, string userEmail) =>
