@@ -1,10 +1,10 @@
 using LoginAuth.Data.Abstraction;
 using LoginAuth.DependencyInjection;
 using LoginAuth.DTO;
+using LoginAuth.Endpoints.v1;
 using LoginAuth.ErrorMessages;
 using LoginAuth.Model;
 using LoginAuth.Security;
-using LoginAuth.Validation;
 using Microsoft.AspNetCore.Authentication.Negotiate;
 using System.Security.Claims;
 using static LoginAuth.Security.Tokens;
@@ -39,36 +39,9 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-app.MapPost("/register", (RegisterRequest request, DatabaseAbstract<Account> database, AccountPasswordHasher hasher) =>
-{
-    if (!request.Validate())
-        return Results.BadRequest(AccountErrorMessage.EmailOrPasswordInvalid);
+app.MapPost("/register", Register.Handler()).AllowAnonymous().RequireRateLimiting("fixed-policy");
 
-    if (!database.Add(hasher.HashPassword(request)))
-        return Results.BadRequest(AccountErrorMessage.EmailOrPasswordInvalid);
-
-    return Results.Ok();
-}).AllowAnonymous()
-  .RequireRateLimiting("fixed-policy");
-
-app.MapPost("/login", (LoginRequest request,
-                       AccountPasswordHasher hasher,
-                       DatabaseAbstract<Account> accountTable,
-                       DatabaseAbstract<RefreshToken> tokenTable,
-                       Tokens tokens) =>
-{
-    var getAccount = Account.Restore(accountTable, request.Email);
-    if (getAccount is null)
-        return Results.BadRequest(AccountErrorMessage.EmailOrPasswordInvalid);
-
-    if (!hasher.VerifyPassword(request, getAccount.PasswordHash))
-        return Results.Unauthorized();
-
-    TokenAuth? token = tokens.PersistNewRefreshToken(getAccount, tokenTable);
-    if (token is null) return Results.InternalServerError();
-
-    return Results.Ok(token);
-}).AllowAnonymous()
+app.MapPost("/login", Login.Handler()).AllowAnonymous()
   .RequireRateLimiting("fixed-policy");
 
 app.MapPost("/protected", (ClaimsPrincipal user, TimeProvider timeProvider) =>
