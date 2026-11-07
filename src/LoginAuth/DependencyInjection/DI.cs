@@ -29,6 +29,7 @@ static class DI
             services.AddScoped<DatabaseAbstract<Account>, Database>();
             services.AddScoped<DatabaseAbstract<RefreshToken>, TokenTable>();
             services.AddSingleton<Tokens>();
+            services.AddSingleton<TwoFactorsAuth>();
             return services;
         }
 

@@ -1,16 +1,16 @@
 using LoginAuth.Data.Abstraction;
 using LoginAuth.DTO;
+using LoginAuth.Endpoints.Delegates;
 using LoginAuth.ErrorMessages;
+using LoginAuth.Extensions.Validation;
 using LoginAuth.Model;
 using LoginAuth.Security;
-using LoginAuth.Validation;
 
 namespace LoginAuth.Endpoints.v1;
 
 public static class Register
 {
-    public static Func<RegisterRequest, DatabaseAbstract<Account>, AccountPasswordHasher, IResult> Handler()
-        => GetResult;
+    public static RegisterDelegate Handler => GetResult;
 
     private static IResult GetResult(RegisterRequest request, DatabaseAbstract<Account> database, AccountPasswordHasher hasher)
     {

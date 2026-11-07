@@ -1,7 +1,6 @@
 ﻿using LoginAuth.DTO;
-using LoginAuth.Model;
 
-namespace LoginAuth.Validation;
+namespace LoginAuth.Extensions.Validation;
 
 static class DtoValidation
 {

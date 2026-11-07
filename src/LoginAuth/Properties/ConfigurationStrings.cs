@@ -8,9 +8,9 @@ static class ConfigurationStrings
     {
         public string ConnectionString() =>
             configuration.GetValue<string>("DbInfo:ConnectionString")
-                ?? throw new ArgumentNullException(nameof(configuration), AccountErrorMessage.ConnectionStringNotFound);
+                ?? throw new ArgumentNullException(nameof(configuration), SystemErrorMessage.ConnectionStringNotFound);
         public string DbFilePath() =>
             configuration.GetValue<string>("DbInfo:FilePath")
-                ?? throw new ArgumentNullException(nameof(configuration), AccountErrorMessage.DbPathNotFound);
+                ?? throw new ArgumentNullException(nameof(configuration), SystemErrorMessage.DbPathNotFound);
     }
 }

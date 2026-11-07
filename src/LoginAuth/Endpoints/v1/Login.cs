@@ -10,7 +10,7 @@ namespace LoginAuth.Endpoints.v1;
 
 public static class Login
 {
-    public static LoginDelegate Handler() => GetResult;
+    public static LoginDelegate Handler => GetResult;
 
     private static IResult GetResult(LoginRequest request,
                                      AccountPasswordHasher hasher,

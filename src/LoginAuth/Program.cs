@@ -1,13 +1,6 @@
-using LoginAuth.Data.Abstraction;
 using LoginAuth.DependencyInjection;
-using LoginAuth.DTO;
 using LoginAuth.Endpoints.v1;
-using LoginAuth.ErrorMessages;
-using LoginAuth.Model;
-using LoginAuth.Security;
 using Microsoft.AspNetCore.Authentication.Negotiate;
-using System.Security.Claims;
-using static LoginAuth.Security.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -39,30 +32,20 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-app.MapPost("/register", Register.Handler()).AllowAnonymous().RequireRateLimiting("fixed-policy");
+RouteGroupBuilder @fixed = app.MapGroup("/")
+    .AllowAnonymous()
+    .RequireRateLimiting("fixed-policy");
 
-app.MapPost("/login", Login.Handler()).AllowAnonymous()
-  .RequireRateLimiting("fixed-policy");
+RouteGroupBuilder sliding = app.MapGroup("/")
+    .RequireAuthorization()
+    .RequireRateLimiting("user-policy");
 
-app.MapPost("/protected", (ClaimsPrincipal user, TimeProvider timeProvider) =>
-{
-    var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value
-                 ?? user.FindFirst("sub")?.Value;
-
-    var email = user.FindFirst(ClaimTypes.Email)?.Value
-                ?? user.FindFirst("email")?.Value;
-
-    var currentUtc = timeProvider.GetUtcNow().UtcDateTime;
-
-    return Results.Ok(new
-    {
-        Message = "User authenticated!",
-        UserId = userId,
-        Email = email,
-        ValidatedAt = currentUtc
-    });
-}).RequireAuthorization()
-  .RequireRateLimiting("user-policy");
+@fixed.MapPost("/register", Register.Handler);
+@fixed.MapPost("/login", Login.Handler);
+sliding.MapPost("/protected", Protected.Handler);
+sliding.MapPost("/refresh", Refresh.Handler);
+sliding.MapPost("/setup", TwoFactor.SetupHandler);
+sliding.MapPost("/confirm", TwoFactor.ConfirmHandler);
 
 app.MapPost("/test", () =>
 {
@@ -72,48 +55,5 @@ app.MapPost("/test", () =>
     });
 }).AllowAnonymous()
   .RequireRateLimiting("user-policy");
-
-app.MapPost("/refresh", (RefreshRequest request,
-                         DatabaseAbstract<Account> accountTable,
-                         DatabaseAbstract<RefreshToken> tokenTable,
-                         Tokens tokens,
-                         TimeProvider timeProvider,
-                         ClaimsPrincipal user) =>
-{
-    var oldToken = tokenTable.FindAll().FirstOrDefault(t => t.Token == request.RefreshToken);
-    var currentUtc = timeProvider.GetUtcNow().UtcDateTime;
-
-    if (oldToken is null || oldToken.ExpiresAt <= currentUtc)
-    {
-        RevokeAndUpdateDb(tokenTable, oldToken, 1);
-        return Results.Unauthorized();
-    }
-
-    var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value
-                 ?? user.FindFirst("sub")?.Value;
-
-    var email = user.FindFirst(ClaimTypes.Email)?.Value
-                ?? user.FindFirst("email")?.Value;
-
-    if (userId is null || email is null)
-        return Results.BadRequest("User credentials not found!");
-
-    var newTokens = tokens.Generate(userId, email);
-
-    oldToken.Token = newTokens.RefreshToken;
-    oldToken.ExpiresAt = currentUtc.AddDays(7);
-    RevokeAndUpdateDb(tokenTable, oldToken);
-
-    return Results.Ok(oldToken);
-
-    static void RevokeAndUpdateDb(DatabaseAbstract<RefreshToken> tokenTable, RefreshToken? oldToken, int isRevoked = 0)
-    {
-        if (oldToken is null) return;
-        oldToken.IsRevoked = isRevoked;
-        tokenTable.Update(oldToken);
-    }
-
-}).RequireAuthorization()
-  .RequireRateLimiting("user-policy");
-
+  
 app.Run();
