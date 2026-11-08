@@ -42,6 +42,7 @@ RouteGroupBuilder sliding = app.MapGroup("/")
 
 @fixed.MapPost("/register", Register.Handler);
 @fixed.MapPost("/login", Login.Handler);
+@fixed.MapPost("/login/mfa", Login.MfaHandler);
 sliding.MapPost("/protected", Protected.Handler);
 sliding.MapPost("/refresh", Refresh.Handler);
 sliding.MapPost("/setup", TwoFactor.SetupHandler);

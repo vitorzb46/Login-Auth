@@ -14,7 +14,7 @@ public class TwoFactorsAuth
         return new(userSecretKey, qrCodeUrl);
     }
 
-    public bool TryValidate(string userSecretKey, string pinCode, out string message)
+    public bool TryValidate(string? userSecretKey, string pinCode, out string message)
     {
         message = default!;
         if (string.IsNullOrEmpty(userSecretKey)) return false;

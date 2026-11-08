@@ -11,23 +11,42 @@ namespace LoginAuth.Endpoints.v1;
 public static class Login
 {
     public static LoginDelegate Handler => GetResult;
+    public static TwoFactorDelegate MfaHandler => GetMfaResult;
 
+    private static IResult GetMfaResult(TwoFactorRequest request,
+                                        DatabaseAbstract<Account> accountTable,
+                                        DatabaseAbstract<RefreshToken> tokenTable,
+                                        TwoFactorsAuth tfa,
+                                        Tokens tokens)
+    {
+        var user = Account.Restore(accountTable, request.Email);
+        if (user is not { TwoFactorEnabled: 1})
+            return Results.BadRequest(AccountErrorMessage.TwoFactorNotEnabled);
+
+        if (!tfa.TryValidate(user.TwoFactorSecret, request.Code, out _))
+            return Results.BadRequest(AccountErrorMessage.TOTPInvalid);
+
+        TokenAuth? token = tokens.PersistNewRefreshToken(user, tokenTable);
+        return token is null ? Results.InternalServerError() : Results.Ok(token);
+    }
+    
     private static IResult GetResult(LoginRequest request,
                                      AccountPasswordHasher hasher,
                                      DatabaseAbstract<Account> accountTable,
                                      DatabaseAbstract<RefreshToken> tokenTable,
                                      Tokens tokens)
     {
-        var getAccount = Account.Restore(accountTable, request.Email);
-        if (getAccount is null)
+        var user = Account.Restore(accountTable, request.Email);
+        if (user is null)
             return Results.BadRequest(AccountErrorMessage.EmailOrPasswordInvalid);
 
-        if (!hasher.VerifyPassword(request, getAccount.PasswordHash))
+        if (!hasher.VerifyPassword(request, user.PasswordHash))
             return Results.Unauthorized();
 
-        TokenAuth? token = tokens.PersistNewRefreshToken(getAccount, tokenTable);
-        if (token is null) return Results.InternalServerError();
+        if (user.TwoFactorEnabled == 1)
+            return Results.Accepted(value: new { RequiresTwoFactor = true, user.Email });
 
-        return Results.Ok(token);
+        TokenAuth? token = tokens.PersistNewRefreshToken(user, tokenTable);
+        return token is null ? Results.InternalServerError() : Results.Ok(token);
     }
 }

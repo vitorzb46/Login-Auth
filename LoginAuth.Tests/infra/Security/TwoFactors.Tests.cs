@@ -6,6 +6,7 @@ using LoginAuth.DTO;
 using LoginAuth.Model;
 using LoginAuth.Security;
 using Microsoft.Extensions.DependencyInjection;
+using static LoginAuth.Security.Tokens;
 
 namespace LoginAuth.Tests.infra.Security;
 
@@ -15,6 +16,8 @@ public partial class TwoFactors
     private HttpClient _client;
     private IServiceScope _scope;
     private DatabaseAbstract<Account> _db;
+    private DatabaseAbstract<RefreshToken> _dbToken;
+
     private TwoFactorsAuth _tfa;
 
     [OneTimeSetUp]
@@ -29,6 +32,7 @@ public partial class TwoFactors
     {
         _scope = _factory.Services.CreateScope();
         _db = _scope.ServiceProvider.GetRequiredService<DatabaseAbstract<Account>>();
+        _dbToken = _scope.ServiceProvider.GetRequiredService<DatabaseAbstract<RefreshToken>>();
         _tfa = _scope.ServiceProvider.GetRequiredService<TwoFactorsAuth>();
     }
     
@@ -146,10 +150,93 @@ public partial class TwoFactors
         Assert.That(dbUser.TwoFactorEnabled, Is.EqualTo(1));
     }
 
+    [Test]
+    public async Task Login_WhenTwoFactorEnabled_ShouldReturnAccepted()
+    {
+        var email = "login_mfa@test.com";
+        var password = "SuperSecret123!";
+        var hasher = _factory.Services.GetRequiredService<AccountPasswordHasher>();
+        string hashed = hasher.HashPassword(email,password);
+
+        Account acc = SetupMfaUser(email, hashed);
+        var request = new LoginRequest(acc.Email, password);
+        var response = await _client.PostAsJsonAsync("/login", request);
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Accepted));
+        
+        var content = await response.Content.ReadFromJsonAsync<LoginMfaResponse>();
+        Assert.That(content, Is.Not.Null);
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(content.RequiresTwoFactor, Is.True);
+            Assert.That(content.Email, Is.EqualTo(email));
+        }
+    }
+
+    [Test]
+    public async Task LoginMfa_WhenTwoFactorNotEnabled_ShouldReturnBadRequest()
+    {
+        var email = "mfa_not_enabled@test.com";
+        SetupMfaUser(email, enabled: false);
+        var request = new TwoFactorRequest(email,"123456");
+        var response = await _client.PostAsJsonAsync("/login/mfa", request);
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
+    }
+
+    [Test]
+    public async Task LoginMfa_WhenInvalidCode_ShouldReturnBadRequest()
+    {
+        var email = "mfa_invalid_code@test.com";
+        SetupMfaUser(email, enabled: true);
+        var request = new TwoFactorRequest(email,"000000");
+        var response = await _client.PostAsJsonAsync("/login/mfa", request);
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
+    }
+
+    [Test]
+    public async Task LoginMfa_WhenValidCode_ShouldReturnOkAndPersistToken()
+    {
+        var email = "mfa_valid@test.com";
+        var acc = SetupMfaUser(email, enabled: true);
+        var validCode = GenerateTotpCode(acc.TwoFactorSecret!);
+        var request = new TwoFactorRequest(email,validCode);
+
+        var response = await _client.PostAsJsonAsync("/login/mfa", request);
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        
+        var tokenResult = await response.Content.ReadFromJsonAsync<TokenAuth>();
+        Assert.That(tokenResult, Is.Not.Null);
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(tokenResult.AccessToken, Is.Not.Empty);
+            Assert.That(tokenResult.RefreshToken, Is.Not.Empty);
+            var savedToken = _dbToken.FindAll().FirstOrDefault(t => t.Token == tokenResult.RefreshToken);
+            Assert.That(savedToken, Is.Not.Null);
+            Assert.That(savedToken?.AccountId, Is.EqualTo(acc.Id));
+        }
+    }
+    
+    public record LoginMfaResponse(bool RequiresTwoFactor, string Email);
+
     private static string GenerateTotpCode(string secretKey)
     {
         var totp = new OtpNet.Totp(OtpNet.Base32Encoding.ToBytes(secretKey));
         return totp.ComputeTotp();
+    }
+
+    private Account SetupMfaUser(string email, string pwd = "dummy_hash",bool enabled = true)
+    {
+        var setup = _tfa.Generate(email); 
+        
+        var acc = new Account 
+        { 
+            Email = email, 
+            PasswordHash = pwd,
+            TwoFactorSecret = setup.SecretKey,
+            TwoFactorEnabled = enabled ? 1 : 0
+        };
+        
+        _db.Add(acc);
+        return acc;
     }
 
     private async Task<Account> AuthenticateUser(string email = "2fa@test.com")

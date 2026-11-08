@@ -7,6 +7,8 @@ namespace LoginAuth.Security;
 public class AccountPasswordHasher(PasswordHasher<string> hasher)
 {
     private readonly PasswordHasher<string> _hasher = hasher;
+
+    public string HashPassword(string email, string pwdToHash) => _hasher.HashPassword(email, pwdToHash);
     
     public Account HashPassword(RegisterRequest input)
     {
