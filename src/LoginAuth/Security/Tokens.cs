@@ -30,7 +30,7 @@ public sealed class Tokens
         key = Encoding.ASCII.GetBytes(secretKey);
     }
 
-    public TokenAuth? PersistNewRefreshToken(Account account, DatabaseAbstract<RefreshToken> tokenTable)
+    public TokenAuth? PersistNewRefreshToken(Account account, DatabaseAbstract db)
     {
         var newTokens = Generate(account.Id.ToString(), account.Email);
         var currentUtc = _timeProvider.GetUtcNow().UtcDateTime;
@@ -42,7 +42,7 @@ public sealed class Tokens
             ExpiresAt = currentUtc.AddDays(7)
         };
 
-        if(!tokenTable.Add(rt)) return null;
+        if(!db.Add(rt)) return null;
 
         return newTokens;
     }

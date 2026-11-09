@@ -7,5 +7,5 @@ namespace LoginAuth.Endpoints.Delegates;
 
 public delegate IResult TwoFactorSetupDelegate(
     ClaimsPrincipal principal,
-    DatabaseAbstract<Account> db,
+    DatabaseAbstract db,
     TwoFactorsAuth tfa);

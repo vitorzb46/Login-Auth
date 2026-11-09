@@ -12,7 +12,7 @@ public static class Register
 {
     public static RegisterDelegate Handler => GetResult;
 
-    private static IResult GetResult(RegisterRequest request, DatabaseAbstract<Account> database, AccountPasswordHasher hasher)
+    private static IResult GetResult(RegisterRequest request, DatabaseAbstract database, AccountPasswordHasher hasher)
     {
         if (!request.Validate())
             return Results.BadRequest(AccountErrorMessage.EmailOrPasswordInvalid);

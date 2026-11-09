@@ -8,7 +8,7 @@ public class DBUpdate
 {
     private ApiWebApplicationFactory _factory;
     private IServiceScope _scope;
-    private DatabaseAbstract<Account> _db;
+    private DatabaseAbstract _db;
 
 
     [OneTimeSetUp]
@@ -18,7 +18,7 @@ public class DBUpdate
     public void SetUp()
     {
         _scope = _factory.Services.CreateScope();
-        _db = _scope.ServiceProvider.GetRequiredService<DatabaseAbstract<Account>>();
+        _db = _scope.ServiceProvider.GetRequiredService<DatabaseAbstract>();
     }
 
     [Test]
@@ -46,9 +46,9 @@ public class DBUpdate
         }
         finally
         {
-            _db.Remove(inputUpdate!.Id);
+            _db.Remove<Account>(inputUpdate!.Id);
         }
-        Account? FindAccount(Account acc) => _db.FindAll().FirstOrDefault(a => a.Email == acc.Email);
+        Account? FindAccount(Account acc) => _db.FindAll<Account>().FirstOrDefault(a => a.Email == acc.Email);
     }
 
     [TearDown]

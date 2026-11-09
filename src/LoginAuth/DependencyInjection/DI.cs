@@ -1,8 +1,12 @@
 ﻿using LoginAuth.Data;
 using LoginAuth.Data.Abstraction;
+using LoginAuth.DTO;
 using LoginAuth.ErrorMessages;
 using LoginAuth.Model;
 using LoginAuth.Security;
+using LoginAuth.Services;
+using LoginAuth.Services.Interfaces;
+using LoginAuth.Worker;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.RateLimiting;
@@ -10,6 +14,7 @@ using Microsoft.IdentityModel.Tokens;
 using System.Globalization;
 using System.Security.Claims;
 using System.Text;
+using System.Threading.Channels;
 using System.Threading.RateLimiting;
 
 namespace LoginAuth.DependencyInjection;
@@ -22,15 +27,33 @@ static class DI
         {
             services.JwtAuthentication(services, builder);
             services.RateLimiter(services);
+            services.AddHttpClient<IEmailService, ResendEmailService>(ResendApi(builder));
+            services.AddSingleton(Channel.CreateUnbounded<EmailRegistrationEvent>(new UnboundedChannelOptions
+            {
+                SingleReader = true
+            }));
+            services.AddHostedService<EmailProcessingWorker>();
+
 
             services.AddSingleton(TimeProvider.System);
             services.AddSingleton<PasswordHasher<string>>();
             services.AddSingleton<AccountPasswordHasher>();
-            services.AddScoped<DatabaseAbstract<Account>, Database>();
-            services.AddScoped<DatabaseAbstract<RefreshToken>, TokenTable>();
+            services.AddScoped<DatabaseAbstract, Database>();
             services.AddSingleton<Tokens>();
             services.AddSingleton<TwoFactorsAuth>();
             return services;
+        }
+
+        private static Action<HttpClient> ResendApi(WebApplicationBuilder builder)
+        {
+            return client =>
+            {
+                client.BaseAddress = new Uri("https://resend.com");
+
+                var apiKey = builder.Configuration["Resend:ApiKey"];
+                client.DefaultRequestHeaders.Authorization =
+                    new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", apiKey);
+            };
         }
 
         private IServiceCollection JwtAuthentication(IServiceCollection sc, WebApplicationBuilder builder)

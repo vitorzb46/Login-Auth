@@ -7,7 +7,6 @@ namespace LoginAuth.Endpoints.Delegates;
 
 public delegate IResult TwoFactorDelegate(
     TwoFactorRequest request,
-    DatabaseAbstract<Account> accountTable,
-    DatabaseAbstract<RefreshToken> tokenTable,
+    DatabaseAbstract db,
     TwoFactorsAuth tfa,
     Tokens tokens);

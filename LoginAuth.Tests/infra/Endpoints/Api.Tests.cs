@@ -13,8 +13,7 @@ public class Api
     private ApiWebApplicationFactory _factory;
     private HttpClient _client;
     private IServiceScope _scope;
-    private DatabaseAbstract<Account> _db;
-    private DatabaseAbstract<RefreshToken> _dbToken;
+    private DatabaseAbstract _db;
     private PasswordHasher<string> _hasher;
 
     [OneTimeSetUp]
@@ -28,8 +27,7 @@ public class Api
     public void SetUp()
     {
         _scope = _factory.Services.CreateScope();
-        _db = _scope.ServiceProvider.GetRequiredService<DatabaseAbstract<Account>>();
-        _dbToken = _scope.ServiceProvider.GetRequiredService<DatabaseAbstract<RefreshToken>>();
+        _db = _scope.ServiceProvider.GetRequiredService<DatabaseAbstract>();
         _hasher = new PasswordHasher<string>();
     }
 
@@ -38,7 +36,7 @@ public class Api
     {
         var input = AccountData();
         var response = await _client.PostAsJsonAsync("/register", input);
-        var bankAcc = _db.FindAll().FirstOrDefault(a => a.Email == input.Email);
+        var bankAcc = _db.FindAll<Account>().FirstOrDefault(a => a.Email == input.Email);
         try
         {
             Assert.That(bankAcc, Is.Not.Null);
@@ -52,7 +50,7 @@ public class Api
         }
         finally
         {
-            _db.Remove(bankAcc?.Id);
+            _db.Remove<Account>(bankAcc?.Id);
         }
     }
 
@@ -63,8 +61,8 @@ public class Api
         _db.Add(AccountMap(acc));
         var input = await _client.PostAsJsonAsync("/register", acc);
         Assert.That(input.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
-        var r = _db.FindAll().FirstOrDefault(a => a.Email == acc.Email);
-        _db.Remove(r?.Id);
+        var r = _db.FindAll<Account>().FirstOrDefault(a => a.Email == acc.Email);
+        _db.Remove<Account>(r?.Id);
     }
 
     [Test]
@@ -73,8 +71,8 @@ public class Api
         var input = AccountData();
         var output = await _client.PostAsJsonAsync("/register", input);
         var response = await _client.PostAsJsonAsync("/login", input);
-        var bankAcc = _db.FindAll().FirstOrDefault(a => a.Email == input.Email);
-        var savedRefreshToken = _dbToken.FindAll().FirstOrDefault(a => a.AccountId == bankAcc?.Id);
+        var bankAcc = _db.FindAll<Account>().FirstOrDefault(a => a.Email == input.Email);
+        var savedRefreshToken = _db.FindAll<RefreshToken>().FirstOrDefault(a => a.AccountId == bankAcc?.Id);
         try
         {
             Assert.That(bankAcc, Is.Not.Null);
@@ -105,8 +103,8 @@ public class Api
         }
         finally
         {
-            _db.Remove(bankAcc?.Id);
-            _dbToken.Remove(savedRefreshToken?.AccountId);
+            _db.Remove<Account>(bankAcc?.Id);
+            _db.Remove<RefreshToken>(savedRefreshToken?.AccountId);
         }
     }
 
@@ -115,7 +113,7 @@ public class Api
     {
         var input = AccountData(pwd: "1234567");
         var response = await _client.PostAsJsonAsync("/login", input);
-        var bankAcc = _db.FindAll().FirstOrDefault(a => a.Email == input.Email);
+        var bankAcc = _db.FindAll<Account>().FirstOrDefault(a => a.Email == input.Email);
         using (Assert.EnterMultipleScope())
         {
             Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));

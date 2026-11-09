@@ -1,3 +1,4 @@
+using LoginAuth.Data;
 using LoginAuth.Data.Abstraction;
 using LoginAuth.Model;
 using LoginAuth.Security;
@@ -171,8 +172,8 @@ public class AuthToken
         Assert.That(output, Is.Not.Null);
 
         var refreshToken = output.RefreshToken;
-        var db = _factory.Services.GetRequiredService<DatabaseAbstract<RefreshToken>>();
-        var tokenDb = db.FindAll().FirstOrDefault(a => a.Token == refreshToken);
+        var db = _factory.Services.GetRequiredService<DatabaseAbstract>();
+        var tokenDb = db.FindAll<RefreshToken>().FirstOrDefault(a => a.Token == refreshToken);
         Assert.That(tokenDb, Is.Not.Null);
 
         tokenDb.IsRevoked = 1;

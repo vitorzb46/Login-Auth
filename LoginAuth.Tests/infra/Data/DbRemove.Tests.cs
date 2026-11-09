@@ -8,7 +8,7 @@ public class DBRemove
 {
     private ApiWebApplicationFactory _factory;
     private IServiceScope _scope;
-    private DatabaseAbstract<Account> _db;
+    private DatabaseAbstract _db;
 
 
     [OneTimeSetUp]
@@ -18,7 +18,7 @@ public class DBRemove
     public void SetUp()
     {
         _scope = _factory.Services.CreateScope();
-        _db = _scope.ServiceProvider.GetRequiredService<DatabaseAbstract<Account>>();
+        _db = _scope.ServiceProvider.GetRequiredService<DatabaseAbstract>();
     }
 
     [Test]
@@ -27,7 +27,7 @@ public class DBRemove
         var acc = new Account { Email = $"{Guid.NewGuid()}@gg.com", PasswordHash = "123456789" };
         bool result = _db.Add(acc);
         var saved = FindAccount(acc);
-        _db.Remove(saved?.Id);
+        _db.Remove<Account>(saved?.Id);
         var savedAfterRemoved = FindAccount(acc);
         using (Assert.EnterMultipleScope())
         {
@@ -35,13 +35,13 @@ public class DBRemove
             Assert.That(savedAfterRemoved, Is.Null);
         }
 
-        Account? FindAccount(Account acc) => _db.FindAll().FirstOrDefault(a => a.Email == acc.Email);
+        Account? FindAccount(Account acc) => _db.FindAll<Account>().FirstOrDefault(a => a.Email == acc.Email);
     }
 
     [Test]
     public void NullParamInDbRemove_ShouldReturnFalse()
     {
-        bool isValid = _db.Remove(null);
+        bool isValid = _db.Remove<Account>(null);
         Assert.That(isValid, Is.False);
     }
 

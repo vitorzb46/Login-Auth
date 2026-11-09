@@ -1,3 +1,4 @@
+using LoginAuth.Data;
 using LoginAuth.Data.Abstraction;
 using LoginAuth.Model;
 using Microsoft.AspNetCore.Authentication;
@@ -31,7 +32,7 @@ public class ApiWebApplicationFactory : WebApplicationFactory<Program>
                 }
             });
 
-            services.RemoveAll<DatabaseAbstract<Account>>();
+            services.RemoveAll<DatabaseAbstract>();
             services.RemoveAll<TimeProvider>();
 
             var fakeTimeProvider = new FakeTimeProvider(new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero));
@@ -39,8 +40,7 @@ public class ApiWebApplicationFactory : WebApplicationFactory<Program>
 
             services.ConfigureOptions<CustomValidatorJwtBearerOptions>();
 
-            services.AddSingleton<DatabaseAbstract<Account>, FakeDatabase>();
-            services.AddSingleton<DatabaseAbstract<RefreshToken>, FakeTokenTable>();
+            services.AddSingleton<DatabaseAbstract, FakeDatabase>();
         });
     }
 }

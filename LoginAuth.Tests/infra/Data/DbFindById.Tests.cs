@@ -8,7 +8,7 @@ public class DBFindById
 {
     private ApiWebApplicationFactory _factory;
     private IServiceScope _scope;
-    private DatabaseAbstract<Account> _db;
+    private DatabaseAbstract _db;
 
 
     [OneTimeSetUp]
@@ -18,7 +18,7 @@ public class DBFindById
     public void SetUp()
     {
         _scope = _factory.Services.CreateScope();
-        _db = _scope.ServiceProvider.GetRequiredService<DatabaseAbstract<Account>>();
+        _db = _scope.ServiceProvider.GetRequiredService<DatabaseAbstract>();
     }
 
     [Test]
@@ -27,7 +27,7 @@ public class DBFindById
         var input = new Account { Email = "ttt@gg.com", PasswordHash = "123456789" };
         bool result = _db.Add(input);
         var output = FindAccount(input);
-        var outputById = _db.FindByID(output?.Id);
+        var outputById = _db.FindByID<Account>(output?.Id);
         using (Assert.EnterMultipleScope())
         {
             Assert.That(result, Is.True);
@@ -36,15 +36,15 @@ public class DBFindById
             Assert.That(outputById?.Email, Is.EqualTo(input.Email));
             Assert.That(outputById?.PasswordHash, Is.EqualTo(input.PasswordHash));
         }
-        _db.Remove(output.Id);
+        _db.Remove<Account>(output.Id);
 
-        Account? FindAccount(Account acc) => _db.FindAll().FirstOrDefault(a => a.Email == acc.Email);
+        Account? FindAccount(Account acc) => _db.FindAll<Account>().FirstOrDefault(a => a.Email == acc.Email);
     }
 
     [Test]
     public void NullParamInDbFindByID_ShouldReturnNull()
     {
-        Account? acc = _db.FindByID(null);
+        Account? acc = _db.FindByID<Account>(null);
         Assert.That(acc, Is.Null);
     }
 

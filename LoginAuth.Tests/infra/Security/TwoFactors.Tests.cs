@@ -15,8 +15,7 @@ public partial class TwoFactors
     private ApiWebApplicationFactory _factory;
     private HttpClient _client;
     private IServiceScope _scope;
-    private DatabaseAbstract<Account> _db;
-    private DatabaseAbstract<RefreshToken> _dbToken;
+    private DatabaseAbstract _db;
 
     private TwoFactorsAuth _tfa;
 
@@ -31,8 +30,7 @@ public partial class TwoFactors
     public void SetUp()
     {
         _scope = _factory.Services.CreateScope();
-        _db = _scope.ServiceProvider.GetRequiredService<DatabaseAbstract<Account>>();
-        _dbToken = _scope.ServiceProvider.GetRequiredService<DatabaseAbstract<RefreshToken>>();
+        _db = _scope.ServiceProvider.GetRequiredService<DatabaseAbstract>();
         _tfa = _scope.ServiceProvider.GetRequiredService<TwoFactorsAuth>();
     }
     
@@ -89,7 +87,7 @@ public partial class TwoFactors
             Assert.That(result.QrCodeUri, Is.Not.Null.And.Not.Empty);
         }
 
-        var dbUser = _db.FindAll().First(u => u.Email == acc.Email);
+        var dbUser = _db.FindAll<Account>().First(u => u.Email == acc.Email);
         Assert.That(dbUser.TwoFactorSecret, Is.EqualTo(result.SecretKey));
     }
 
@@ -146,7 +144,7 @@ public partial class TwoFactors
         var response = await _client.PostAsJsonAsync("/confirm", request);
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
         
-        var dbUser = _db.FindAll().First(u => u.Email == acc.Email);
+        var dbUser = _db.FindAll<Account>().First(u => u.Email == acc.Email);
         Assert.That(dbUser.TwoFactorEnabled, Is.EqualTo(1));
     }
 
@@ -209,7 +207,7 @@ public partial class TwoFactors
         {
             Assert.That(tokenResult.AccessToken, Is.Not.Empty);
             Assert.That(tokenResult.RefreshToken, Is.Not.Empty);
-            var savedToken = _dbToken.FindAll().FirstOrDefault(t => t.Token == tokenResult.RefreshToken);
+            var savedToken = _db.FindAll<RefreshToken>().FirstOrDefault(t => t.Token == tokenResult.RefreshToken);
             Assert.That(savedToken, Is.Not.Null);
             Assert.That(savedToken?.AccountId, Is.EqualTo(acc.Id));
         }

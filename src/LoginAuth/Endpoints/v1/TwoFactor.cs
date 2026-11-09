@@ -16,14 +16,14 @@ public static class TwoFactor
 
     private static IResult GetConfirm(TwoFactorRequest request,
                                       ClaimsPrincipal principal,
-                                      DatabaseAbstract<Account> db,
+                                      DatabaseAbstract db,
                                       TwoFactorsAuth tfa)
     {
         var email = principal.FindFirst(ClaimTypes.Email)?.Value
                     ?? principal.FindFirst("email")?.Value;
         if (string.IsNullOrEmpty(email)) return Results.Unauthorized();
 
-        Account? user = db.FindAll().FirstOrDefault(e => e.Email == email);
+        var user = db.FindAll<Account>().FirstOrDefault(e => e.Email == email);
         if (user is null || string.IsNullOrEmpty(user.TwoFactorSecret)) 
             return Results.BadRequest(AccountErrorMessage.ConfirmBeforeSetup);
 
@@ -37,13 +37,13 @@ public static class TwoFactor
     }
 
 
-    private static IResult GetSetup(ClaimsPrincipal principal, DatabaseAbstract<Account> db, TwoFactorsAuth tfa)
+    private static IResult GetSetup(ClaimsPrincipal principal, DatabaseAbstract db, TwoFactorsAuth tfa)
     {
         var email = principal.FindFirst(ClaimTypes.Email)?.Value
                     ?? principal.FindFirst("email")?.Value;
         if (string.IsNullOrEmpty(email)) return Results.Unauthorized();
 
-        Account? user = db.FindAll().FirstOrDefault(e => e.Email == email);
+        var user = db.FindAll<Account>().FirstOrDefault(e => e.Email == email);
         if (user is null) return Results.NotFound(AccountErrorMessage.AccountNotFound);
 
         string? secretKey = user.TwoFactorSecret;

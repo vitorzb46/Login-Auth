@@ -12,18 +12,17 @@ public static class Refresh
     public static RefreshDelegate Handler => GetResult;
 
     private static IResult GetResult(RefreshRequest request,
-                                     DatabaseAbstract<Account> accountTable,
-                                     DatabaseAbstract<RefreshToken> tokenTable,
+                                     DatabaseAbstract db,
                                      Tokens tokens,
                                      TimeProvider timeProvider,
                                      ClaimsPrincipal user)
     {
-        var oldToken = tokenTable.FindAll().FirstOrDefault(t => t.Token == request.RefreshToken);
+        var oldToken = db.FindAll<RefreshToken>().FirstOrDefault(t => t.Token == request.RefreshToken);
         var currentUtc = timeProvider.GetUtcNow().UtcDateTime;
 
         if (oldToken is null || oldToken.ExpiresAt <= currentUtc)
         {
-            RevokeAndUpdateDb(tokenTable, oldToken, 1);
+            RevokeAndUpdateDb(db, oldToken, 1);
             return Results.Unauthorized();
         }
 
@@ -40,15 +39,15 @@ public static class Refresh
 
         oldToken.Token = newTokens.RefreshToken;
         oldToken.ExpiresAt = currentUtc.AddDays(7);
-        RevokeAndUpdateDb(tokenTable, oldToken);
+        RevokeAndUpdateDb(db, oldToken);
 
         return Results.Ok(oldToken);
     }
 
-    private static void RevokeAndUpdateDb(DatabaseAbstract<RefreshToken> tokenTable, RefreshToken? oldToken, int isRevoked = 0)
+    private static void RevokeAndUpdateDb(DatabaseAbstract db, RefreshToken? oldToken, int isRevoked = 0)
     {
         if (oldToken is null) return;
         oldToken.IsRevoked = isRevoked;
-        tokenTable.Update(oldToken);
+        db.Update(oldToken);
     }
 }

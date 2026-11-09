@@ -8,7 +8,7 @@ public class DBFindAll
 {
     private ApiWebApplicationFactory _factory;
     private IServiceScope _scope;
-    private DatabaseAbstract<Account> _db;
+    private DatabaseAbstract _db;
 
 
     [OneTimeSetUp]
@@ -18,7 +18,7 @@ public class DBFindAll
     public void SetUp()
     {
         _scope = _factory.Services.CreateScope();
-        _db = _scope.ServiceProvider.GetRequiredService<DatabaseAbstract<Account>>();
+        _db = _scope.ServiceProvider.GetRequiredService<DatabaseAbstract>();
     }
 
     [Test]
@@ -29,7 +29,7 @@ public class DBFindAll
 
         _db.Add(account1);
         _db.Add(account2);
-        var result = _db.FindAll().ToList();
+        var result = _db.FindAll<Account>().ToList();
         using (Assert.EnterMultipleScope())
         {
             Assert.That(result, Is.Not.Null);
@@ -45,11 +45,11 @@ public class DBFindAll
             Assert.That(testAccount2?.PasswordHash, Is.EqualTo(account2.PasswordHash));
         }
 
-        var dbAccount1 = _db.FindAll().FirstOrDefault(a => a.Email == account1.Email);
-        var dbAccount2 = _db.FindAll().FirstOrDefault(a => a.Email == account2.Email);
+        var dbAccount1 = _db.FindAll<Account>().FirstOrDefault(a => a.Email == account1.Email);
+        var dbAccount2 = _db.FindAll<Account>().FirstOrDefault(a => a.Email == account2.Email);
 
-        _db.Remove(dbAccount1?.Id);
-        _db.Remove(dbAccount2?.Id);
+        _db.Remove<Account>(dbAccount1?.Id);
+        _db.Remove<Account>(dbAccount2?.Id);
     }
 
     [TearDown]

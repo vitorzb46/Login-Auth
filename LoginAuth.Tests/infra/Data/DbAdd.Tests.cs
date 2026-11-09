@@ -8,7 +8,7 @@ public class DBAdd
 {
     private ApiWebApplicationFactory _factory;
     private IServiceScope _scope;
-    private DatabaseAbstract<Account> _db;
+    private DatabaseAbstract _db;
 
 
     [OneTimeSetUp]
@@ -18,7 +18,7 @@ public class DBAdd
     public void SetUp()
     {
         _scope = _factory.Services.CreateScope();
-        _db = _scope.ServiceProvider.GetRequiredService<DatabaseAbstract<Account>>();
+        _db = _scope.ServiceProvider.GetRequiredService<DatabaseAbstract>();
     }
 
     [Test]
@@ -26,7 +26,7 @@ public class DBAdd
     {
         var acc = new Account { Email = $"{Guid.NewGuid()}@gg.com", PasswordHash = "123456789" };
         bool result = _db.Add(acc);
-        var saved = _db.FindAll().FirstOrDefault(a => a.Email == acc.Email);
+        var saved = _db.FindAll<Account>().FirstOrDefault(a => a.Email == acc.Email);
         using (Assert.EnterMultipleScope())
         {
             Assert.That(result, Is.True);
@@ -34,7 +34,7 @@ public class DBAdd
             Assert.That(saved?.Email, Is.EqualTo(acc.Email));
             Assert.That(saved?.PasswordHash, Is.EqualTo(acc.PasswordHash));
         }
-        _db.Remove(saved.Id);
+        _db.Remove<Account>(saved.Id);
     }
 
     [TearDown]
