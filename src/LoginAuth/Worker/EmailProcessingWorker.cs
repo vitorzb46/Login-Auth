@@ -1,8 +1,8 @@
-using System.Security.Cryptography;
-using System.Threading.Channels;
 using LoginAuth.Data.Abstraction;
 using LoginAuth.DTO;
 using LoginAuth.Services.Interfaces;
+using System.Security.Cryptography;
+using System.Threading.Channels;
 
 namespace LoginAuth.Worker;
 
@@ -13,7 +13,6 @@ public sealed class EmailProcessingWorker(Channel<EmailRegistrationEvent> channe
     private readonly Channel<EmailRegistrationEvent> _channel = channel;
     private readonly IServiceProvider _serviceProvider = serviceProvider;
     private readonly ILogger<EmailProcessingWorker> _logger = logger;
-
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -27,18 +26,24 @@ public sealed class EmailProcessingWorker(Channel<EmailRegistrationEvent> channe
                 {
                     var emailService = scope.ServiceProvider.GetRequiredService<IEmailService>();
                     var db = scope.ServiceProvider.GetRequiredService<DatabaseAbstract>();
-                    
+
                     string query = @"INSERT INTO EmailConfirmation (AccountId, Code, ExpiresAt)
                                      VALUES (@Id, Code, ExpiresAt)
-                                     ON CONFLIT (AccountId)
+                                     ON CONFLICT (AccountId)
                                      DO UPDATE SET
+
                                         Code = excluded.Code,
                                         ExpiresAt = excluded.ExpiresAt";
-                    
-                    await db.ExecuteAsync(query);
-                    
-                    string htmlBody = $"<p>Your activation code are: <strong>{verificationCode}</strong>. It expires in 15 minutes...</p>";
-                    
+
+                    var isValid = await db.ExecuteAsync(query, new { Id = registration.UserId, Code = verificationCode, ExpiresAt = expirationTime });
+                    if (!isValid) return;
+
+                    string htmlBody = $@"
+                <p>Your account activation code is: <strong>{verificationCode}</strong></p>
+                <p>Enter this code on our <a href='http://localhost:5265/email/confirmation'>Email Confirmation page</a> to verify your account.</p>
+                <p style='color: #666; font-size: 12px;'>Note: This code is valid for 15 minutes.</p>";
+
+
                     await emailService.SendEmailAsync(
                         to: registration.Email,
                         subject: "Account confirmation - Activation code",

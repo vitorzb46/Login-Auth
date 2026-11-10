@@ -16,5 +16,5 @@ public abstract class DatabaseAbstract
     public abstract bool Update<T>(T item);
     public abstract T? FindByID<T>(int? id) where T : class;
     public abstract IEnumerable<T> FindAll<T>();
-    public abstract Task<bool> ExecuteAsync(string? query);
+    public abstract Task<bool> ExecuteAsync(string? query, dynamic? param = null);
 }

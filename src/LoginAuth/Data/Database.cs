@@ -1,8 +1,8 @@
-using System.Reflection;
 using Dapper;
 using LoginAuth.Data.Abstraction;
 using LoginAuth.Model;
 using Microsoft.Data.Sqlite;
+using System.Reflection;
 
 namespace LoginAuth.Data;
 
@@ -17,7 +17,7 @@ public class Database(IConfiguration configuration) : DatabaseAbstract(configura
         if (props.Length == 0) return false;
 
         var columns = string.Join(", ", props.Select(p => p.Name));
-        var values  = string.Join(", ", props.Select(p => "@" + p.Name));
+        var values = string.Join(", ", props.Select(p => "@" + p.Name));
         var sql = $"INSERT INTO {tableName} ({columns}) VALUES ({values})";
 
         try
@@ -83,10 +83,10 @@ public class Database(IConfiguration configuration) : DatabaseAbstract(configura
         return SqlConnected(conn => conn.Query<T>($"SELECT * FROM {tableName}"));
     }
 
-    public override async Task<bool> ExecuteAsync(string? query)
+    public override async Task<bool> ExecuteAsync(string? query, dynamic? param = null)
     {
         if (string.IsNullOrEmpty(query)) return false;
-        return await SqlConnected(conn => conn.ExecuteAsync(query)) > 0;
+        return await SqlConnected(conn => conn.ExecuteAsync(query, (object?)param)) > 0;
     }
 
     private T SqlConnected<T>(Func<SqliteConnection, T> func)

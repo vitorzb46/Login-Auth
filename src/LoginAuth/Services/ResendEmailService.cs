@@ -1,5 +1,5 @@
-using System.Text.Json.Serialization;
 using LoginAuth.Services.Interfaces;
+using System.Text.Json.Serialization;
 
 namespace LoginAuth.Services;
 
@@ -8,13 +8,15 @@ public sealed class ResendEmailService(HttpClient httpClient, ILogger<ResendEmai
     private readonly HttpClient _httpClient = httpClient;
     private readonly ILogger<ResendEmailService> _logger = logger;
 
+    public ResendEmail ContentMessage { get; private set; } // Test only
+
     public async Task<bool> SendEmailAsync(string to, string subject, string htmlContent, CancellationToken cancellationToken = default)
     {
         try
         {
             var payload = new ResendEmailRequest
             {
-                From = "Login-Auth <onboarding@resend.dev>", 
+                From = "Login-Auth <onboarding@resend.dev>",
                 To = [to],
                 Subject = subject,
                 Html = htmlContent
@@ -22,13 +24,15 @@ public sealed class ResendEmailService(HttpClient httpClient, ILogger<ResendEmai
 
             var response = await _httpClient.PostAsJsonAsync("emails", payload, cancellationToken);
 
+            ContentMessage = new ResendEmail { ResendEmailRequest = payload, HttpResponseMessage = response };
+
             if (response.IsSuccessStatusCode)
             {
                 string message = $"E-mail successfully sent to {to}.";
                 _logger.LogInformation(message);
                 return true;
             }
-            
+
             var errorContent = await response.Content.ReadAsStringAsync(cancellationToken);
             string message1 = $"Fail to send e-mail. Status: {response.StatusCode}. Awnser: {errorContent}";
             _logger.LogError(message1);
@@ -42,7 +46,7 @@ public sealed class ResendEmailService(HttpClient httpClient, ILogger<ResendEmai
         }
     }
 
-    private sealed class ResendEmailRequest
+    public sealed class ResendEmailRequest
     {
         [JsonPropertyName("from")]
         public required string From { get; set; }
@@ -56,5 +60,9 @@ public sealed class ResendEmailService(HttpClient httpClient, ILogger<ResendEmai
         [JsonPropertyName("html")]
         public required string Html { get; set; }
     }
+
+    public record struct ResendEmail(
+        ResendEmailRequest ResendEmailRequest,
+        HttpResponseMessage? HttpResponseMessage);
 
 }
