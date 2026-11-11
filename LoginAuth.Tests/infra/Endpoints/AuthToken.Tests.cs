@@ -1,4 +1,3 @@
-using LoginAuth.Data;
 using LoginAuth.Data.Abstraction;
 using LoginAuth.Model;
 using LoginAuth.Security;

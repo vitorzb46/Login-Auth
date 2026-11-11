@@ -58,7 +58,7 @@ public class Api
     public async Task RegisterEmailThatAlreadyExists_ShouldReturnBadRequest()
     {
         var acc = AccountData("example1@ex.com");
-        _db.Add(AccountMap(acc));
+        var x = _db.Add(AccountMap(acc));
         var input = await _client.PostAsJsonAsync("/register", acc);
         Assert.That(input.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
         var r = _db.FindAll<Account>().FirstOrDefault(a => a.Email == acc.Email);

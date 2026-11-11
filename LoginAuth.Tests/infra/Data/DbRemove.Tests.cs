@@ -25,13 +25,13 @@ public class DBRemove
     public void PersistDataThenRemoveFromDatabase()
     {
         var acc = new Account { Email = $"{Guid.NewGuid()}@gg.com", PasswordHash = "123456789" };
-        bool result = _db.Add(acc);
+        var result = _db.Add(acc);
         var saved = FindAccount(acc);
         _db.Remove<Account>(saved?.Id);
         var savedAfterRemoved = FindAccount(acc);
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(result, Is.True);
+            Assert.That(result, Is.Not.Null);
             Assert.That(savedAfterRemoved, Is.Null);
         }
 

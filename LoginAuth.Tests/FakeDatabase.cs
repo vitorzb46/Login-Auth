@@ -3,26 +3,23 @@ using LoginAuth.Data.Abstraction;
 using LoginAuth.Model;
 using Microsoft.Extensions.Configuration;
 
-namespace LoginAuth.Data;
+namespace LoginAuth.Tests;
 
 public class FakeDatabase(IConfiguration configuration) : DatabaseAbstract(configuration)
 {
     private readonly Dictionary<Type, List<object>> _tables = [];
     private readonly Dictionary<Type, int> _autoIncrements = [];
 
-    public override bool Add<T>(T item)
+    public override T? Add<T>(T item) where T : class
     {
-        if (!EntityReflection.TryConfirm(item, out var allowedType)) return false;
+        if (!EntityReflection.TryConfirm(item, out var allowedType)) return null;
 
         var table = GetTable(allowedType);
-        if (HasUniqueViolation(table, item!)) return false;
-        
-        var nextId = _autoIncrements.TryGetValue(allowedType, out var current) ? current : 1;
-        EntityReflection.GetPrimaryKey(allowedType).SetValue(item, nextId);
-        _autoIncrements[allowedType] = nextId + 1;
+        if (HasUniqueViolation(table, item!)) return null;
 
-        table.Add(item!);
-        return true;
+        AssignPrimaryKey(EntityReflection.GetPrimaryKey(allowedType), item, allowedType);
+        table.Add(item);
+        return item;
     }
 
     public override bool Remove<T>(int? id)
@@ -84,12 +81,69 @@ public class FakeDatabase(IConfiguration configuration) : DatabaseAbstract(confi
         _ => false
     };
 
-    public override Task<bool> ExecuteAsync(string? query)
+    public override Task<bool> ExecuteAsync(string? query, dynamic? param = null)
     {
-        throw new NotImplementedException();
+        if (string.IsNullOrEmpty(query) || param is null) return Task.FromResult(false);
+        if (query.Contains("INSERT INTO EmailConfirmation", StringComparison.OrdinalIgnoreCase))
+        {
+            var entityType = typeof(EmailConfirmation);
+            if (!_tables.TryGetValue(entityType, out var list))
+            {
+                list = [];
+                _tables[entityType] = list;
+            }
+            
+            var entity = new EmailConfirmation
+            {
+                AccountId = (string)param.Id,
+                Code = (string)param.Code,
+                ExpiresAt = (DateTime)param.ExpiresAt
+            };
+            
+            var existing = list.Cast<EmailConfirmation>()
+                               .FirstOrDefault(e => e.AccountId == entity.AccountId);
+            
+            if (existing != null)
+            {
+                existing.Code = entity.Code;
+                existing.ExpiresAt = entity.ExpiresAt;
+            }
+            else
+            {
+                list.Add(entity);
+            }
+
+            return Task.FromResult(true);
+        }
+        if (query.Contains("DELETE FROM EmailConfirmation", StringComparison.OrdinalIgnoreCase))
+        {
+            if (_tables.TryGetValue(typeof(EmailConfirmation), out var list))
+            {
+                string accountId = (string)param.AccountId;
+                int removed = list.RemoveAll(x => ((EmailConfirmation)x).AccountId == accountId);
+                return Task.FromResult(removed > 0);
+            }
+            return Task.FromResult(false);
+        }
+        throw new NotImplementedException($"Query não implementada no FakeDatabase: {query}");
     }
 
-
+    private void AssignPrimaryKey(PropertyInfo pk, object item, Type type)
+    {
+        if (pk.PropertyType == typeof(int) || pk.PropertyType == typeof(int?))
+        {
+            var nextId = _autoIncrements.TryGetValue(type, out var current) ? current : 1;
+            pk.SetValue(item, nextId);
+            _autoIncrements[type] = nextId + 1;
+        }
+        else if (pk.PropertyType == typeof(string))
+        {
+            if (string.IsNullOrEmpty(pk.GetValue(item) as string))
+                pk.SetValue(item, Guid.NewGuid().ToString());
+        }
+        // Others types
+    }
+    
     private static class EntityReflection
     {
         public static readonly HashSet<Type> AllowedTypes =
@@ -122,9 +176,11 @@ public class FakeDatabase(IConfiguration configuration) : DatabaseAbstract(confi
         {
             confirmedType = default!;
             if (item is null) return false;
-            var generic = typeof(T);
-            if (!AllowedTypes.Contains(generic)) return false;
-            confirmedType = generic;
+
+            var runtimeType = item.GetType();
+            if (!AllowedTypes.Contains(runtimeType)) return false;
+
+            confirmedType = runtimeType;
             return true;
         }
     }

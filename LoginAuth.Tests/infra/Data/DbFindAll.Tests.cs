@@ -27,12 +27,14 @@ public class DBFindAll
         var account1 = new Account { Email = "user1@gg.com", PasswordHash = "password123" };
         var account2 = new Account { Email = "user2@gg.com", PasswordHash = "password456" };
 
-        _db.Add(account1);
-        _db.Add(account2);
+        var x1 = _db.Add(account1);
+        var x2 = _db.Add(account2);
         var result = _db.FindAll<Account>().ToList();
         using (Assert.EnterMultipleScope())
         {
             Assert.That(result, Is.Not.Null);
+            Assert.That(x1, Is.Not.Null);
+            Assert.That(x2, Is.Not.Null);
             Assert.That(result, Has.Count.GreaterThanOrEqualTo(2));
 
             var testAccount1 = result?.FirstOrDefault(a => a.Email == account1.Email);

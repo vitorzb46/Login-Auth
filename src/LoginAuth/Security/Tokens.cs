@@ -41,8 +41,8 @@ public sealed class Tokens
             Token = newTokens.RefreshToken,
             ExpiresAt = currentUtc.AddDays(7)
         };
-
-        if(!db.Add(rt)) return null;
+        var op = db.Add(rt);
+        if(op is null) return null;
 
         return newTokens;
     }

@@ -1,30 +1,30 @@
 using Dapper;
 using LoginAuth.Data.Abstraction;
-using LoginAuth.Model;
 using Microsoft.Data.Sqlite;
-using System.Reflection;
 
 namespace LoginAuth.Data;
 
-public class Database(IConfiguration configuration) : DatabaseAbstract(configuration)
+public partial class Database(IConfiguration configuration) : DatabaseAbstract(configuration)
 {
-    public override bool Add<T>(T item)
+    public override T? Add<T>(T item) where T : class
     {
-        if (!EntityReflection.TryConfirm(item, out var allowedType)) return false;
+        if (!EntityReflection.TryConfirm(item, out var allowedType)) return default;
 
-        var tableName = EntityReflection.GetTableName(allowedType);
-        var props = EntityReflection.GetProperties(allowedType);
-        if (props.Length == 0) return false;
-
-        var columns = string.Join(", ", props.Select(p => p.Name));
-        var values = string.Join(", ", props.Select(p => "@" + p.Name));
-        var sql = $"INSERT INTO {tableName} ({columns}) VALUES ({values})";
+        var (sql, NeedsAutoIncrement) = EntityReflection.BuildInsert(allowedType, item);
+        if (sql is null) return default;
 
         try
         {
-            return SqlConnected(conn => conn.Execute(sql, item)) > 0;
+            var rows = SqlConnected(conn =>
+            {
+                var affected = conn.Execute(sql, item);
+                if (affected > 0 && NeedsAutoIncrement)
+                    EntityReflection.SetGeneratedId(item, conn.ExecuteScalar<long>("SELECT last_insert_rowid();"));
+                return affected;
+            });
+            return rows > 0 ? item : default;
         }
-        catch (SqliteException) { return false; }
+        catch (SqliteException) { return default; }
     }
 
     public override bool Remove<T>(int? id)
@@ -95,44 +95,5 @@ public class Database(IConfiguration configuration) : DatabaseAbstract(configura
         try { connection.Open(); }
         catch (SqliteException ex) { Console.WriteLine(ex.Message); }
         return func(connection);
-    }
-
-    private static class EntityReflection
-    {
-        public static readonly HashSet<Type> AllowedTypes =
-        [
-            typeof(Account),
-            typeof(RefreshToken),
-            typeof(EmailConfirmation)
-        ];
-
-        public static bool IsAllowed<T>() => AllowedTypes.Contains(typeof(T));
-
-        public static string GetTableName<T>() => typeof(T).Name;
-        public static string GetTableName(Type type) => type.Name;
-
-        public static PropertyInfo[] GetProperties<T>() => GetProperties(typeof(T));
-        public static PropertyInfo[] GetProperties(Type type) =>
-            type.GetProperties(BindingFlags.Public | BindingFlags.Instance);
-
-        public static PropertyInfo GetPrimaryKey<T>() => GetPrimaryKey(typeof(T));
-        public static PropertyInfo GetPrimaryKey(Type type)
-        {
-            var props = GetProperties(type);
-            return props.FirstOrDefault(p =>
-                       p.Name.Equals("Id", StringComparison.OrdinalIgnoreCase) ||
-                       p.Name.Equals(type.Name + "Id", StringComparison.OrdinalIgnoreCase))
-                   ?? props.First();
-        }
-
-        public static bool TryConfirm<T>(T item, out Type confirmedType)
-        {
-            confirmedType = default!;
-            if (item is null) return false;
-            var generic = typeof(T);
-            if (!AllowedTypes.Contains(generic)) return false;
-            confirmedType = generic;
-            return true;
-        }
     }
 }

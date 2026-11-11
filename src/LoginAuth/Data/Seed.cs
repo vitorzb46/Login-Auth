@@ -21,7 +21,7 @@ public class Seed
                 CREATE TABLE IF NOT EXISTS [Account] (
                     [Id] INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
                     [Email] TEXT NOT NULL UNIQUE,
-                    [EmailConfirmed] INTEGER NOT NULL DEFAULT = 0,
+                    [EmailConfirmed] INTEGER NOT NULL DEFAULT 0,
                     [PasswordHash] TEXT NOT NULL,
                     [TwoFactorSecret] TEXT NULL,
                     [TwoFactorEnabled] INTEGER NOT NULL DEFAULT 0,
@@ -43,7 +43,8 @@ public class Seed
 
             _dbConnection.Execute(@"
                 CREATE TABLE IF NOT EXISTS [EmailConfirmation] (
-                    [AccountId] TEXT NOT NULL PRIMARY KEY,
+                    [Id] TEXT NOT NULL PRIMARY KEY,
+                    [AccountId] INTEGER NOT NULL,
                     [Code] TEXT NOT NULL,
                     [ExpiresAt] TEXT NOT NULL,
                     FOREIGN KEY ([AccountId]) REFERENCES [Account] ([Id]) ON DELETE CASCADE

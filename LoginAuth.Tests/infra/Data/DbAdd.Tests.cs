@@ -25,11 +25,11 @@ public class DBAdd
     public void TestIfDataIsPersistedInDatabase()
     {
         var acc = new Account { Email = $"{Guid.NewGuid()}@gg.com", PasswordHash = "123456789" };
-        bool result = _db.Add(acc);
+        var result = _db.Add(acc);
         var saved = _db.FindAll<Account>().FirstOrDefault(a => a.Email == acc.Email);
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(result, Is.True);
+            Assert.That(result, Is.Not.Null);
             Assert.That(saved, Is.Not.Null);
             Assert.That(saved?.Email, Is.EqualTo(acc.Email));
             Assert.That(saved?.PasswordHash, Is.EqualTo(acc.PasswordHash));

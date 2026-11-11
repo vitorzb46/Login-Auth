@@ -1,6 +1,5 @@
-using LoginAuth.Data;
 using LoginAuth.Data.Abstraction;
-using LoginAuth.Model;
+using LoginAuth.Services.Interfaces;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Negotiate;
 using Microsoft.AspNetCore.Hosting;
@@ -34,6 +33,7 @@ public class ApiWebApplicationFactory : WebApplicationFactory<Program>
 
             services.RemoveAll<DatabaseAbstract>();
             services.RemoveAll<TimeProvider>();
+            services.RemoveAll<IEmailService>();
 
             var fakeTimeProvider = new FakeTimeProvider(new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero));
             services.AddSingleton<TimeProvider>(fakeTimeProvider);
@@ -41,6 +41,7 @@ public class ApiWebApplicationFactory : WebApplicationFactory<Program>
             services.ConfigureOptions<CustomValidatorJwtBearerOptions>();
 
             services.AddSingleton<DatabaseAbstract, FakeDatabase>();
+            services.AddSingleton<IEmailService, FakeEmailService>();
         });
     }
 }

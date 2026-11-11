@@ -47,6 +47,7 @@ sliding.MapPost("/protected", Protected.Handler);
 sliding.MapPost("/refresh", Refresh.Handler);
 sliding.MapPost("/setup", TwoFactor.SetupHandler);
 sliding.MapPost("/confirm", TwoFactor.ConfirmHandler);
+sliding.MapPost("/email/confirmation", Email.Handler);
 
 app.MapPost("/test", () =>
 {

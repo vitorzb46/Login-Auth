@@ -28,7 +28,7 @@ public class DBUpdate
         Account? inputUpdate = null;
         try
         {
-            bool res = _db.Add(input);
+            var res = _db.Add(input);
             var dbOutput = FindAccount(input);
             Assert.That(dbOutput, Is.Not.Null);
 
@@ -37,7 +37,7 @@ public class DBUpdate
             var updateOutput = FindAccount(inputUpdate);
             using (Assert.EnterMultipleScope())
             {
-                Assert.That(res, Is.True);
+                Assert.That(res, Is.Not.Null);
                 Assert.That(isUpdated, Is.True);
                 Assert.That(updateOutput, Is.Not.Null);
                 Assert.That(updateOutput?.Email, Is.EqualTo(inputUpdate.Email));

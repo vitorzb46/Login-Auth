@@ -24,15 +24,20 @@ public sealed class ResendEmailService(HttpClient httpClient, ILogger<ResendEmai
 
             var response = await _httpClient.PostAsJsonAsync("emails", payload, cancellationToken);
 
-            ContentMessage = new ResendEmail { ResendEmailRequest = payload, HttpResponseMessage = response };
-
+            ContentMessage = new ResendEmail
+            {
+                ResendEmailRequest = payload,
+                HttpResponseMessage = response,
+                EmailSent = response.IsSuccessStatusCode
+            };
+            
             if (response.IsSuccessStatusCode)
             {
                 string message = $"E-mail successfully sent to {to}.";
                 _logger.LogInformation(message);
                 return true;
             }
-
+            
             var errorContent = await response.Content.ReadAsStringAsync(cancellationToken);
             string message1 = $"Fail to send e-mail. Status: {response.StatusCode}. Awnser: {errorContent}";
             _logger.LogError(message1);
@@ -63,6 +68,7 @@ public sealed class ResendEmailService(HttpClient httpClient, ILogger<ResendEmai
 
     public record struct ResendEmail(
         ResendEmailRequest ResendEmailRequest,
-        HttpResponseMessage? HttpResponseMessage);
+        HttpResponseMessage? HttpResponseMessage,
+        bool EmailSent);
 
 }

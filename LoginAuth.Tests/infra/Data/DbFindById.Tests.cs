@@ -25,12 +25,12 @@ public class DBFindById
     public void FindByID_WithValidId_ShouldReturnMatchingAccount()
     {
         var input = new Account { Email = "ttt@gg.com", PasswordHash = "123456789" };
-        bool result = _db.Add(input);
+        var result = _db.Add(input);
         var output = FindAccount(input);
         var outputById = _db.FindByID<Account>(output?.Id);
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(result, Is.True);
+            Assert.That(result, Is.Not.Null);
             Assert.That(output, Is.Not.Null);
             Assert.That(outputById, Is.Not.Null);
             Assert.That(outputById?.Email, Is.EqualTo(input.Email));
@@ -44,7 +44,7 @@ public class DBFindById
     [Test]
     public void NullParamInDbFindByID_ShouldReturnNull()
     {
-        Account? acc = _db.FindByID<Account>(null);
+        var acc = _db.FindByID<Account>(null);
         Assert.That(acc, Is.Null);
     }
 
