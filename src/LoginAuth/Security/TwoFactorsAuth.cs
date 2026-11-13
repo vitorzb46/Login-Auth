@@ -38,7 +38,7 @@ public class TwoFactorsAuth
         return totp.VerifyTotp(pinCode.Replace(" ", ""), out _, VerificationWindow.RfcSpecifiedNetworkDelay);
     }
 
-    private static byte[] Base32ToBytes(string key) => Base32Encoding.ToBytes(key);
+    public static byte[] Base32ToBytes(string key) => Base32Encoding.ToBytes(key);
 
     private static string Base32Encode(ReadOnlySpan<byte> input)
     {

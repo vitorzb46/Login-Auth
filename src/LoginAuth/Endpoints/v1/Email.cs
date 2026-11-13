@@ -1,5 +1,6 @@
 using LoginAuth.Data.Abstraction;
 using LoginAuth.DTO;
+using LoginAuth.Endpoints.Delegates;
 using LoginAuth.ErrorMessages;
 using LoginAuth.Model;
 
@@ -7,7 +8,7 @@ namespace LoginAuth.Endpoints.v1;
 
 public static class Email
 {
-    public static Func<ConfirmEmailRequest, DatabaseAbstract, IResult> Handler => GetResult;
+    public static EmailConfirmationDelegate Handler => GetResult;
 
     private static IResult GetResult(ConfirmEmailRequest request, DatabaseAbstract db)
     {

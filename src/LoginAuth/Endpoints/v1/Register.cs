@@ -22,7 +22,7 @@ public static class Register
         if (database.Add(hasher.HashPassword(request)) is not { } account)
             return Results.BadRequest(AccountErrorMessage.EmailOrPasswordInvalid);
         
-        channel.Writer.TryWrite(new EmailRegistrationEvent(account.Id.ToString(), account.Email));
+        channel.Writer.TryWrite(new EmailRegistrationEvent(account.Id, account.Email));
         return Results.Ok();
     }
 }

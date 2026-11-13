@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Dapper;
 using LoginAuth.Data.Abstraction;
 using Microsoft.Data.Sqlite;
@@ -10,21 +11,26 @@ public partial class Database(IConfiguration configuration) : DatabaseAbstract(c
     {
         if (!EntityReflection.TryConfirm(item, out var allowedType)) return default;
 
-        var (sql, NeedsAutoIncrement) = EntityReflection.BuildInsert(allowedType, item);
+        var (sql, parameters, needsAutoIncrement) = EntityReflection.BuildInsert(allowedType, item);
         if (sql is null) return default;
-
         try
         {
             var rows = SqlConnected(conn =>
             {
-                var affected = conn.Execute(sql, item);
-                if (affected > 0 && NeedsAutoIncrement)
+                var affected = conn.Execute(sql, parameters);
+                if (affected > 0 && needsAutoIncrement)
                     EntityReflection.SetGeneratedId(item, conn.ExecuteScalar<long>("SELECT last_insert_rowid();"));
                 return affected;
             });
             return rows > 0 ? item : default;
         }
-        catch (SqliteException) { return default; }
+        catch (SqliteException ex)
+        {
+            Debug.WriteLine($"Sql error code: {ex.SqliteErrorCode}");
+            Debug.WriteLine($"Sql Query: {sql}");
+            Debug.WriteLine($"Message: {ex.Message}");
+            return default;
+        }
     }
 
     public override bool Remove<T>(int? id)
@@ -47,7 +53,7 @@ public partial class Database(IConfiguration configuration) : DatabaseAbstract(c
         if (!EntityReflection.TryConfirm(item, out var allowedType)) return false;
 
         var tableName = EntityReflection.GetTableName(allowedType);
-        var props = EntityReflection.GetProperties(allowedType);
+        var props = EntityReflection.GetInsertProperties(allowedType, true);
         if (props.Length == 0) return false;
 
         var primaryKeyName = EntityReflection.GetPrimaryKey(allowedType).Name;
@@ -85,8 +91,16 @@ public partial class Database(IConfiguration configuration) : DatabaseAbstract(c
 
     public override async Task<bool> ExecuteAsync(string? query, dynamic? param = null)
     {
-        if (string.IsNullOrEmpty(query)) return false;
-        return await SqlConnected(conn => conn.ExecuteAsync(query, (object?)param)) > 0;
+        try
+        {
+            if (string.IsNullOrEmpty(query)) return false;
+            return await SqlConnected(conn => conn.ExecuteAsync(query, (object?)param)) > 0;
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine(ex.Message);
+            return false;
+        }
     }
 
     private T SqlConnected<T>(Func<SqliteConnection, T> func)

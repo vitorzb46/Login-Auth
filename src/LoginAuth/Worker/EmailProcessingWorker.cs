@@ -28,15 +28,18 @@ public sealed class EmailProcessingWorker(Channel<EmailRegistrationEvent> channe
                     var db = scope.ServiceProvider.GetRequiredService<DatabaseAbstract>();
 
                     string query = @"INSERT INTO EmailConfirmation (AccountId, Code, ExpiresAt)
-                                     VALUES (@Id, Code, ExpiresAt)
-                                     ON CONFLICT (AccountId)
-                                     DO UPDATE SET
-
-                                        Code = excluded.Code,
-                                        ExpiresAt = excluded.ExpiresAt";
+                        VALUES (@Id, @Code, @ExpiresAt)
+                        ON CONFLICT (AccountId)
+                        DO UPDATE SET
+                            Code = excluded.Code,
+                            ExpiresAt = excluded.ExpiresAt";
 
                     var isValid = await db.ExecuteAsync(query, new { Id = registration.UserId, Code = verificationCode, ExpiresAt = expirationTime });
-                    if (!isValid) return;
+                    if (!isValid)
+                    {
+                        _logger.LogWarning("Fail to persist code to {UserId}", registration.UserId);
+                        continue;
+                    }
 
                     string htmlBody = $@"
                 <p>Your account activation code is: <strong>{verificationCode}</strong></p>

@@ -43,11 +43,11 @@ RouteGroupBuilder sliding = app.MapGroup("/")
 @fixed.MapPost("/register", Register.Handler);
 @fixed.MapPost("/login", Login.Handler);
 @fixed.MapPost("/login/mfa", Login.MfaHandler);
+@fixed.MapPost("/email/confirmation", Email.Handler);
 sliding.MapPost("/protected", Protected.Handler);
 sliding.MapPost("/refresh", Refresh.Handler);
 sliding.MapPost("/setup", TwoFactor.SetupHandler);
 sliding.MapPost("/confirm", TwoFactor.ConfirmHandler);
-sliding.MapPost("/email/confirmation", Email.Handler);
 
 app.MapPost("/test", () =>
 {

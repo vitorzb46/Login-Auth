@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using LoginAuth.Data.Abstraction;
 using LoginAuth.DTO;
 using LoginAuth.Endpoints.Delegates;
@@ -21,6 +22,8 @@ public static class Login
         var user = Account.Restore(db, request.Email);
         if (user is not { TwoFactorEnabled: 1})
             return Results.BadRequest(AccountErrorMessage.TwoFactorNotEnabled);
+        
+        Debug.WriteLine($"enabled={user.TwoFactorEnabled}, secret='{user.TwoFactorSecret}'");
 
         if (!tfa.TryValidate(user.TwoFactorSecret, request.Code, out _))
             return Results.BadRequest(AccountErrorMessage.TOTPInvalid);

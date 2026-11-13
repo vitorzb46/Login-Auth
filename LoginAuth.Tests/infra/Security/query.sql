@@ -1,0 +1,1 @@
+SELECT Id, Email, TwoFactorSecret FROM Account WHERE Email = 'mfa_valid@test.com';

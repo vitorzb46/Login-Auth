@@ -27,11 +27,12 @@ public partial class TwoFactors
     }
 
     [SetUp]
-    public void SetUp()
+    public async Task SetUp()
     {
         _scope = _factory.Services.CreateScope();
         _db = _scope.ServiceProvider.GetRequiredService<DatabaseAbstract>();
         _tfa = _scope.ServiceProvider.GetRequiredService<TwoFactorsAuth>();
+        await _db.ExecuteAsync("DELETE FROM Account; DELETE FROM RefreshToken;");
     }
     
     [Test]
@@ -194,8 +195,18 @@ public partial class TwoFactors
     public async Task LoginMfa_WhenValidCode_ShouldReturnOkAndPersistToken()
     {
         var email = "mfa_valid@test.com";
-        var acc = SetupMfaUser(email, enabled: true);
-        var validCode = GenerateTotpCode(acc.TwoFactorSecret!);
+        var acc = SetupMfaUser(email);
+        var fromDb = _db.FindAll<Account>().FirstOrDefault(a => a.Email == email);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(acc, Is.Not.Null);
+            Assert.That(fromDb, Is.Not.Null);
+            Assert.That(acc.TwoFactorSecret, Is.EqualTo(fromDb?.TwoFactorSecret));
+            Assert.That(acc.TwoFactorEnabled, Is.EqualTo(fromDb?.TwoFactorEnabled));
+        }
+        
+        var validCode = GenerateTotpCode(acc.TwoFactorSecret);
         var request = new TwoFactorRequest(email,validCode);
 
         var response = await _client.PostAsJsonAsync("/login/mfa", request);
@@ -218,23 +229,22 @@ public partial class TwoFactors
     private static string GenerateTotpCode(string secretKey)
     {
         var totp = new OtpNet.Totp(OtpNet.Base32Encoding.ToBytes(secretKey));
+        var bytes1 = OtpNet.Base32Encoding.ToBytes(secretKey);
+        var bytes2 = TwoFactorsAuth.Base32ToBytes(secretKey);
+        Assert.That(bytes2, Is.EqualTo(bytes1));
         return totp.ComputeTotp();
     }
 
-    private Account SetupMfaUser(string email, string pwd = "dummy_hash",bool enabled = true)
+    private Account SetupMfaUser(string email, string pwd = "dummy_hash", bool enabled = true)
     {
-        var setup = _tfa.Generate(email); 
-        
-        var acc = new Account 
-        { 
-            Email = email, 
-            PasswordHash = pwd,
-            TwoFactorSecret = setup.SecretKey,
-            TwoFactorEnabled = enabled ? 1 : 0
-        };
-        
-        _db.Add(acc);
-        return acc;
+        var setup = _tfa.Generate(email);
+        var acc = new Account { Email = email, PasswordHash = pwd,
+                                TwoFactorSecret = setup.SecretKey,
+                                TwoFactorEnabled = enabled ? 1 : 0 };
+        var saved = _db.Add(acc);
+        if (saved is null)
+            throw new InvalidOperationException($"Add retornou null para {email} — INSERT falhou?");
+        return saved;
     }
 
     private async Task<Account> AuthenticateUser(string email = "2fa@test.com")

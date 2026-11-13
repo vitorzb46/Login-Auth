@@ -43,8 +43,7 @@ public class Seed
 
             _dbConnection.Execute(@"
                 CREATE TABLE IF NOT EXISTS [EmailConfirmation] (
-                    [Id] TEXT NOT NULL PRIMARY KEY,
-                    [AccountId] INTEGER NOT NULL,
+                    [AccountId] INTEGER NOT NULL PRIMARY KEY,
                     [Code] TEXT NOT NULL,
                     [ExpiresAt] TEXT NOT NULL,
                     FOREIGN KEY ([AccountId]) REFERENCES [Account] ([Id]) ON DELETE CASCADE

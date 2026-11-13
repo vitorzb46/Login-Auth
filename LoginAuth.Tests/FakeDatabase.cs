@@ -51,11 +51,18 @@ public class FakeDatabase(IConfiguration configuration) : DatabaseAbstract(confi
 
     public override T? FindByID<T>(int? id) where T : class
     {
+        if (id is null) return null;
         if (!EntityReflection.IsAllowed<T>()) return null;
 
         var table = GetTable(typeof(T));
         var pk = EntityReflection.GetPrimaryKey<T>();
-        return table.OfType<T>().FirstOrDefault(x => Equals(pk.GetValue(x), id));
+
+        return table.OfType<T>().FirstOrDefault(x =>
+        {
+            var pkValue = pk.GetValue(x);
+            if (pkValue is null) return false;
+            return Equals(pkValue, id) || string.Equals(pkValue.ToString(), id.Value.ToString(), StringComparison.Ordinal);
+        });
     }
 
     public override IEnumerable<T> FindAll<T>()
@@ -84,6 +91,8 @@ public class FakeDatabase(IConfiguration configuration) : DatabaseAbstract(confi
     public override Task<bool> ExecuteAsync(string? query, dynamic? param = null)
     {
         if (string.IsNullOrEmpty(query) || param is null) return Task.FromResult(false);
+        object p = param;
+
         if (query.Contains("INSERT INTO EmailConfirmation", StringComparison.OrdinalIgnoreCase))
         {
             var entityType = typeof(EmailConfirmation);
@@ -95,9 +104,9 @@ public class FakeDatabase(IConfiguration configuration) : DatabaseAbstract(confi
             
             var entity = new EmailConfirmation
             {
-                AccountId = (string)param.Id,
-                Code = (string)param.Code,
-                ExpiresAt = (DateTime)param.ExpiresAt
+                AccountId = (int)EntityReflection.GetPropertyValue(p, "Id")!,
+                Code      = (string)EntityReflection.GetPropertyValue(p, "Code")!,
+                ExpiresAt = (DateTime)EntityReflection.GetPropertyValue(p, "ExpiresAt")!
             };
             
             var existing = list.Cast<EmailConfirmation>()
@@ -119,7 +128,7 @@ public class FakeDatabase(IConfiguration configuration) : DatabaseAbstract(confi
         {
             if (_tables.TryGetValue(typeof(EmailConfirmation), out var list))
             {
-                string accountId = (string)param.AccountId;
+                int accountId = (int)EntityReflection.GetPropertyValue(p, "AccountId")!;
                 int removed = list.RemoveAll(x => ((EmailConfirmation)x).AccountId == accountId);
                 return Task.FromResult(removed > 0);
             }
@@ -182,6 +191,14 @@ public class FakeDatabase(IConfiguration configuration) : DatabaseAbstract(confi
 
             confirmedType = runtimeType;
             return true;
+        }
+
+        public static object? GetPropertyValue(object source, string name)
+        {
+            ArgumentNullException.ThrowIfNull(source);
+            var prop = GetProperties(source.GetType())
+                .FirstOrDefault(p => p.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+            return prop?.GetValue(source);
         }
     }
 }
