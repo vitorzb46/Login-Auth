@@ -44,6 +44,8 @@ RouteGroupBuilder sliding = app.MapGroup("/")
 @fixed.MapPost("/login", Login.Handler);
 @fixed.MapPost("/login/mfa", Login.MfaHandler);
 @fixed.MapPost("/email/confirmation", Email.Handler);
+@fixed.MapPost("/recover-password", Password.RecoverHandler);
+@fixed.MapPost("/reset-password", Password.ResetHandler);
 sliding.MapPost("/protected", Protected.Handler);
 sliding.MapPost("/refresh", Refresh.Handler);
 sliding.MapPost("/setup", TwoFactor.SetupHandler);

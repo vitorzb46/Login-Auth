@@ -10,7 +10,8 @@ public static class EntityReflection
     {
         typeof(Account),
         typeof(RefreshToken),
-        typeof(EmailConfirmation)
+        typeof(EmailConfirmation),
+        typeof(PasswordReset)
     };
 
     public static bool IsAllowed<T>() => IsAllowed(typeof(T));

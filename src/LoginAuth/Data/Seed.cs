@@ -48,6 +48,14 @@ public class Seed
                     [ExpiresAt] TEXT NOT NULL,
                     FOREIGN KEY ([AccountId]) REFERENCES [Account] ([Id]) ON DELETE CASCADE
                 );");
+
+            _dbConnection.Execute(@"
+                CREATE TABLE IF NOT EXISTS [PasswordReset] (
+                    [AccountId] INTEGER NOT NULL PRIMARY KEY,
+                    [Token] TEXT NOT NULL,
+                    [ExpiresAt] TEXT NOT NULL,
+                    FOREIGN KEY ([AccountId]) REFERENCES [Account] ([Id]) ON DELETE CASCADE
+                );");
         }
     }
 }

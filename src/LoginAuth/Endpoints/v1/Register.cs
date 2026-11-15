@@ -3,6 +3,7 @@ using LoginAuth.DTO;
 using LoginAuth.Endpoints.Delegates;
 using LoginAuth.ErrorMessages;
 using LoginAuth.Extensions.Validation;
+using LoginAuth.Interfaces;
 using LoginAuth.Model;
 using LoginAuth.Security;
 using System.Diagnostics;
@@ -14,7 +15,10 @@ public static class Register
 {
     public static RegisterDelegate Handler => GetResult;
 
-    private static IResult GetResult(RegisterRequest request, DatabaseAbstract database, AccountPasswordHasher hasher, Channel<EmailRegistrationEvent> channel)
+    private static IResult GetResult(RegisterRequest request,
+                                     DatabaseAbstract database,
+                                     AccountPasswordHasher hasher,
+                                     Channel<IEmailEvent> channel)
     {
         if (!request.Validate())
             return Results.BadRequest(AccountErrorMessage.EmailOrPasswordInvalid);

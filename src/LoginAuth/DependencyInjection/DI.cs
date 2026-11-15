@@ -2,6 +2,7 @@
 using LoginAuth.Data.Abstraction;
 using LoginAuth.DTO;
 using LoginAuth.ErrorMessages;
+using LoginAuth.Interfaces;
 using LoginAuth.Model;
 using LoginAuth.Security;
 using LoginAuth.Services;
@@ -28,7 +29,7 @@ static class DI
             services.JwtAuthentication(services, builder);
             services.RateLimiter(services);
             services.AddHttpClient<IEmailService, ResendEmailService>(ResendApi(builder));
-            services.AddSingleton(Channel.CreateUnbounded<EmailRegistrationEvent>(new UnboundedChannelOptions
+            services.AddSingleton(Channel.CreateUnbounded<IEmailEvent>(new UnboundedChannelOptions
             {
                 SingleReader = true
             }));

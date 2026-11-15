@@ -1,6 +1,7 @@
 using LoginAuth.Data;
 using LoginAuth.Data.Abstraction;
 using LoginAuth.Services.Interfaces;
+using LoginAuth.Worker;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Negotiate;
 using Microsoft.AspNetCore.Hosting;

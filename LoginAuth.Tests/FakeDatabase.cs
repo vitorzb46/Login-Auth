@@ -93,47 +93,38 @@ public class FakeDatabase(IConfiguration configuration) : DatabaseAbstract(confi
         if (string.IsNullOrEmpty(query) || param is null) return Task.FromResult(false);
         object p = param;
 
-        if (query.Contains("INSERT INTO EmailConfirmation", StringComparison.OrdinalIgnoreCase))
-        {
-            var entityType = typeof(EmailConfirmation);
-            if (!_tables.TryGetValue(entityType, out var list))
-            {
-                list = [];
-                _tables[entityType] = list;
-            }
-            
-            var entity = new EmailConfirmation
-            {
-                AccountId = (int)EntityReflection.GetPropertyValue(p, "Id")!,
-                Code      = (string)EntityReflection.GetPropertyValue(p, "Code")!,
-                ExpiresAt = (DateTime)EntityReflection.GetPropertyValue(p, "ExpiresAt")!
-            };
-            
-            var existing = list.Cast<EmailConfirmation>()
-                               .FirstOrDefault(e => e.AccountId == entity.AccountId);
-            
-            if (existing != null)
-            {
-                existing.Code = entity.Code;
-                existing.ExpiresAt = entity.ExpiresAt;
-            }
-            else
-            {
-                list.Add(entity);
-            }
+        var handled =
+            EntityReflection.TryUpsertDelete(
+                query, "PasswordReset", p,
+                src => new PasswordReset
+                {
+                    AccountId = (int)    EntityReflection.GetPropertyValue(src, "Id")!,
+                    Token     = (string) EntityReflection.GetPropertyValue(src, "Token")!,
+                    ExpiresAt = (DateTime)EntityReflection.GetPropertyValue(src, "ExpiresAt")!
+                },
+                e => e.AccountId,
+                (existing, incoming) =>
+                {
+                    existing.Token     = incoming.Token;
+                    existing.ExpiresAt = incoming.ExpiresAt;
+                }, _tables)
+            ?? EntityReflection.TryUpsertDelete(
+                query, "EmailConfirmation", p,
+                src => new EmailConfirmation
+                {
+                    AccountId = (int)    EntityReflection.GetPropertyValue(src, "Id")!,
+                    Code      = (string) EntityReflection.GetPropertyValue(src, "Code")!,
+                    ExpiresAt = (DateTime)EntityReflection.GetPropertyValue(src, "ExpiresAt")!
+                },
+                e => e.AccountId,
+                (existing, incoming) =>
+                {
+                    existing.Code      = incoming.Code;
+                    existing.ExpiresAt = incoming.ExpiresAt;
+                }, _tables);
 
-            return Task.FromResult(true);
-        }
-        if (query.Contains("DELETE FROM EmailConfirmation", StringComparison.OrdinalIgnoreCase))
-        {
-            if (_tables.TryGetValue(typeof(EmailConfirmation), out var list))
-            {
-                int accountId = (int)EntityReflection.GetPropertyValue(p, "AccountId")!;
-                int removed = list.RemoveAll(x => ((EmailConfirmation)x).AccountId == accountId);
-                return Task.FromResult(removed > 0);
-            }
-            return Task.FromResult(false);
-        }
+        if (handled is not null)
+            return handled;
         throw new NotImplementedException($"Query não implementada no FakeDatabase: {query}");
     }
 
@@ -152,7 +143,8 @@ public class FakeDatabase(IConfiguration configuration) : DatabaseAbstract(confi
         }
         // Others types
     }
-    
+
+
     private static class EntityReflection
     {
         public static readonly HashSet<Type> AllowedTypes =
@@ -199,6 +191,50 @@ public class FakeDatabase(IConfiguration configuration) : DatabaseAbstract(confi
             var prop = GetProperties(source.GetType())
                 .FirstOrDefault(p => p.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
             return prop?.GetValue(source);
+        }
+
+        public static Task<bool>? TryUpsertDelete<T>(string query,
+                                                             string tableName,
+                                                             object parameters,
+                                                             Func<object, T> createEntity,
+                                                             Func<T, int> getAccountId,
+                                                             Action<T, T> applyUpdate,
+                                                             Dictionary<Type, List<object>> tables,
+                                                             string keyProperty = "AccountId") where T : class
+        {
+            bool isInsert = query.Contains($"INSERT INTO {tableName}", StringComparison.OrdinalIgnoreCase);
+            bool isDelete = query.Contains($"DELETE FROM {tableName}", StringComparison.OrdinalIgnoreCase);
+
+            if (!isInsert && !isDelete)
+                return null;
+
+            var entityType = typeof(T);
+            if (!tables.TryGetValue(entityType, out var list))
+            {
+                if (isDelete)
+                    return Task.FromResult(false);
+
+                list = [];
+                tables[entityType] = list;
+            }
+
+            if (isInsert)
+            {
+                var entity = createEntity(parameters);
+                var key    = getAccountId(entity);
+                var existing = list.Cast<T>().FirstOrDefault(e => getAccountId(e) == key);
+
+                if (existing is not null)
+                    applyUpdate(existing, entity);
+                else
+                    list.Add(entity);
+
+                return Task.FromResult(true);
+            }
+            
+            var accountId = (int)GetPropertyValue(parameters, keyProperty)!;
+            var removed   = list.RemoveAll(x => getAccountId((T)x) == accountId);
+            return Task.FromResult(removed > 0);
         }
     }
 }
