@@ -9,6 +9,7 @@ using LoginAuth.Services;
 using LoginAuth.Services.Interfaces;
 using LoginAuth.Worker;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authentication.Negotiate;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.IdentityModel.Tokens;
@@ -26,6 +27,7 @@ static class DI
     {
         public IServiceCollection AddDependencies(WebApplicationBuilder builder)
         {
+            Authentication_Authorization();
             services.JwtAuthentication(services, builder);
             services.RateLimiter(services);
             services.AddHttpClient<IEmailService, ResendEmailService>(ResendApi(builder));
@@ -43,6 +45,20 @@ static class DI
             services.AddSingleton<Tokens>();
             services.AddSingleton<TwoFactorsAuth>();
             return services;
+        }
+
+        private static Action<IServiceCollection> Authentication_Authorization()
+        {
+            return sc =>
+            {
+                sc.AddOpenApi();
+                sc.AddAuthentication(NegotiateDefaults.AuthenticationScheme).AddNegotiate();
+                sc.AddAuthorization(options =>
+                {
+                    // By default, all incoming requests will be authorized according to the default policy.
+                    options.FallbackPolicy = options.DefaultPolicy;
+                });
+            };
         }
 
         private static Action<HttpClient> ResendApi(WebApplicationBuilder builder)
