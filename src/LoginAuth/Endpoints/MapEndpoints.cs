@@ -1,4 +1,5 @@
 using LoginAuth.Endpoints.v1;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 
 namespace LoginAuth.Endpoints;
 
@@ -20,6 +21,16 @@ public static class MapEndpoints
         fixedWindow.MapPost("/email/confirmation", Email.Handler);
         fixedWindow.MapPost("/recover-password", Password.RecoverHandler);
         fixedWindow.MapPost("/reset-password", Password.ResetHandler);
+
+        fixedWindow.MapHealthChecks("/health/live", new HealthCheckOptions
+        {
+            Predicate = check => check.Tags.Contains("live")
+        });
+
+        fixedWindow.MapHealthChecks("/health/ready", new HealthCheckOptions
+        {
+            Predicate = check => check.Tags.Contains("ready")
+        });
 
         slidingWindow.MapPost("/protected", Protected.Handler);
         slidingWindow.MapPost("/refresh", Refresh.Handler);
